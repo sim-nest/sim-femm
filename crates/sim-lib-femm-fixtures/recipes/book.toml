@@ -1,0 +1,5 @@
+book = "femm-fixtures"
+title = "FEMM Fixtures"
+summary = "Small reference FEMM fixture descriptors."
+order = 316
+chapters = ["01-basics"]

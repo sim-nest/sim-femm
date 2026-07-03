@@ -1,0 +1,8 @@
+id = "energy-function"
+title = "Energy function descriptor"
+codec = "lisp"
+setup = "setup.siml"
+purpose = "purpose.md"
+order = 10
+tags = ["femm", "function", "energy"]
+requires = ["femm-function", "codec/lisp"]

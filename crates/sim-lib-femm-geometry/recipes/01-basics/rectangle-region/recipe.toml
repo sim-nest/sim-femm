@@ -1,0 +1,8 @@
+id = "rectangle-region"
+title = "Rectangle region descriptor"
+codec = "lisp"
+setup = "setup.siml"
+purpose = "purpose.md"
+order = 10
+tags = ["femm", "geometry", "descriptor"]
+requires = ["femm-geometry", "codec/lisp"]

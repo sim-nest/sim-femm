@@ -1,0 +1,5 @@
+book = "femm-prelude"
+title = "FEMM Prelude"
+summary = "Default FEMM stack loading descriptors."
+order = 317
+chapters = ["01-basics"]

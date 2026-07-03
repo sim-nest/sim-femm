@@ -1,0 +1,5 @@
+book = "femm-solve"
+title = "FEMM Solve"
+summary = "Small linear solve descriptors."
+order = 306
+chapters = ["01-basics"]

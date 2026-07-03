@@ -1,0 +1,5 @@
+book = "femm-mesh"
+title = "FEMM Mesh"
+summary = "Small mesh descriptors and artifact references."
+order = 303
+chapters = ["01-basics"]

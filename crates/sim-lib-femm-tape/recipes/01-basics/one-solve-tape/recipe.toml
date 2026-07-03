@@ -1,0 +1,8 @@
+id = "one-solve-tape"
+title = "One-solve tape descriptor"
+codec = "lisp"
+setup = "setup.siml"
+purpose = "purpose.md"
+order = 10
+tags = ["femm", "tape", "artifact"]
+requires = ["femm-tape", "codec/lisp"]

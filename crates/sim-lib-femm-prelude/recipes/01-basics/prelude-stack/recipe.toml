@@ -1,0 +1,8 @@
+id = "prelude-stack"
+title = "FEMM prelude stack"
+codec = "lisp"
+setup = "setup.siml"
+purpose = "purpose.md"
+order = 10
+tags = ["femm", "prelude", "load"]
+requires = ["femm-prelude", "codec/lisp"]

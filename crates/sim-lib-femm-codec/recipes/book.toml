@@ -1,0 +1,5 @@
+book = "femm-codec"
+title = "FEMM Codec"
+summary = "FEMM descriptor codec round-trip examples."
+order = 315
+chapters = ["01-basics"]

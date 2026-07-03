@@ -1,0 +1,8 @@
+id = "parallel-plate"
+title = "Parallel plate descriptor"
+codec = "lisp"
+setup = "setup.siml"
+purpose = "purpose.md"
+order = 10
+tags = ["femm", "fixtures", "electrostatic"]
+requires = ["femm-fixtures", "codec/lisp"]

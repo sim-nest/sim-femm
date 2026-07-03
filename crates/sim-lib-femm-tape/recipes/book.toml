@@ -1,0 +1,5 @@
+book = "femm-tape"
+title = "FEMM Tape"
+summary = "Solve tape and artifact-reference descriptors."
+order = 313
+chapters = ["01-basics"]

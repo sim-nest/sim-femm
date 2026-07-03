@@ -1,0 +1,8 @@
+id = "tiny-triangle"
+title = "Tiny triangle mesh"
+codec = "lisp"
+setup = "setup.siml"
+purpose = "purpose.md"
+order = 10
+tags = ["femm", "mesh", "triangle"]
+requires = ["femm-mesh", "codec/lisp"]

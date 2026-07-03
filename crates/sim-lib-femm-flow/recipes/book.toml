@@ -1,0 +1,5 @@
+book = "femm-flow"
+title = "FEMM Flow"
+summary = "Descriptor-level FEMM pipeline examples."
+order = 307
+chapters = ["01-basics"]

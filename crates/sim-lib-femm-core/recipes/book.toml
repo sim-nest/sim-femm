@@ -1,0 +1,5 @@
+book = "femm-core"
+title = "FEMM Core"
+summary = "Core FEMM model, parameter, and limit descriptors."
+order = 300
+chapters = ["01-basics"]

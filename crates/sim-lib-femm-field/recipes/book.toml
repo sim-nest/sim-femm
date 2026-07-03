@@ -1,0 +1,5 @@
+book = "femm-field"
+title = "FEMM Field"
+summary = "Field projection descriptors."
+order = 310
+chapters = ["01-basics"]

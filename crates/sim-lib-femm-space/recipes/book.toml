@@ -1,0 +1,5 @@
+book = "femm-space"
+title = "FEMM Space"
+summary = "Element-space and formulation descriptors."
+order = 304
+chapters = ["01-basics"]

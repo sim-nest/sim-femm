@@ -1,0 +1,8 @@
+id = "sparse-lu"
+title = "Sparse LU solve descriptor"
+codec = "lisp"
+setup = "setup.siml"
+purpose = "purpose.md"
+order = 10
+tags = ["femm", "solve", "matrix"]
+requires = ["femm-solve", "codec/lisp"]

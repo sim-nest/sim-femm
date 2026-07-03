@@ -1,0 +1,8 @@
+id = "electrostatic-planar"
+title = "Electrostatic planar physics"
+codec = "lisp"
+setup = "setup.siml"
+purpose = "purpose.md"
+order = 10
+tags = ["femm", "physics", "electrostatic"]
+requires = ["femm-physics", "codec/lisp"]

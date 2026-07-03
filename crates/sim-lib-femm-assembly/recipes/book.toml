@@ -1,0 +1,5 @@
+book = "femm-assembly"
+title = "FEMM Assembly"
+summary = "Tiny element assembly descriptors."
+order = 305
+chapters = ["01-basics"]

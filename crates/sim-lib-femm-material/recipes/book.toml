@@ -1,0 +1,5 @@
+book = "femm-material"
+title = "FEMM Material"
+summary = "Material property descriptors."
+order = 302
+chapters = ["01-basics"]

@@ -1,0 +1,33 @@
+
+[workspace]
+resolver = "3"
+members = [
+  "crates/sim-lib-femm-assembly",
+  "crates/sim-lib-femm-codec",
+  "crates/sim-lib-femm-core",
+  "crates/sim-lib-femm-fixtures",
+  "crates/sim-lib-femm-field",
+  "crates/sim-lib-femm-flow",
+  "crates/sim-lib-femm-function",
+  "crates/sim-lib-femm-geometry",
+  "crates/sim-lib-femm-material",
+  "crates/sim-lib-femm-mesh",
+  "crates/sim-lib-femm-ode",
+  "crates/sim-lib-femm-physics",
+  "crates/sim-lib-femm-post",
+  "crates/sim-lib-femm-prelude",
+  "crates/sim-lib-femm-sensitiv",
+  "crates/sim-lib-femm-solve",
+  "crates/sim-lib-femm-space",
+  "crates/sim-lib-femm-tape",
+  "xtask",
+]
+
+[workspace.package]
+edition = "2024"
+license = "MPL-2.0"
+repository = "https://github.com/sim-nest/sim-femm"
+homepage = "https://github.com/sim-nest/sim-femm"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"

@@ -1,0 +1,21 @@
+[package]
+name = "sim-lib-femm-prelude"
+version = "0.1.0"
+edition = "2024"
+license = "MPL-2.0"
+description = "SIM workspace package for sim lib femm prelude."
+readme = "README.md"
+publish = true
+repository = "https://github.com/sim-nest/sim-femm"
+homepage = "https://github.com/sim-nest/sim-femm"
+
+[dependencies]
+sim-kernel = { version = "0.1.0" }
+sim-lib-femm-core = { version = "0.1.0", path = "../sim-lib-femm-core" }
+sim-lib-femm-field = { version = "0.1.0", path = "../sim-lib-femm-field" }
+sim-lib-femm-flow = { version = "0.1.0", path = "../sim-lib-femm-flow" }
+sim-lib-femm-function = { version = "0.1.0", path = "../sim-lib-femm-function" }
+sim-lib-femm-ode = { version = "0.1.0", path = "../sim-lib-femm-ode" }
+sim-lib-femm-sensitiv = { version = "0.1.0", path = "../sim-lib-femm-sensitiv" }
+sim-lib-numbers-numeric = { version = "0.1.0" }
+sim-lib-numbers-prelude = { version = "0.1.0" }

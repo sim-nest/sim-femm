@@ -1,0 +1,8 @@
+id = "tiny-pipeline"
+title = "Tiny FEMM pipeline"
+codec = "lisp"
+setup = "setup.siml"
+purpose = "purpose.md"
+order = 10
+tags = ["femm", "flow", "pipeline"]
+requires = ["femm-flow", "codec/lisp"]

@@ -1,0 +1,5 @@
+book = "femm-physics"
+title = "FEMM Physics"
+summary = "Physics and formulation descriptors."
+order = 308
+chapters = ["01-basics"]

@@ -1,0 +1,25 @@
+[package]
+name = "sim-lib-femm-ode"
+version = "0.1.0"
+edition = "2024"
+license = "MPL-2.0"
+description = "SIM workspace package for sim lib femm ode."
+readme = "README.md"
+publish = true
+repository = "https://github.com/sim-nest/sim-femm"
+homepage = "https://github.com/sim-nest/sim-femm"
+
+[dependencies]
+sim-kernel = { version = "0.1.0" }
+sim-value = { version = "0.1.0" }
+sim-lib-femm-core = { version = "0.1.0", path = "../sim-lib-femm-core" }
+sim-lib-femm-function = { version = "0.1.0", path = "../sim-lib-femm-function" }
+sim-lib-femm-geometry = { version = "0.1.0", path = "../sim-lib-femm-geometry" }
+sim-lib-femm-material = { version = "0.1.0", path = "../sim-lib-femm-material" }
+sim-lib-femm-mesh = { version = "0.1.0", path = "../sim-lib-femm-mesh" }
+sim-lib-femm-post = { version = "0.1.0", path = "../sim-lib-femm-post" }
+sim-lib-femm-tape = { version = "0.1.0", path = "../sim-lib-femm-tape" }
+sim-lib-numbers-func = { version = "0.1.0" }
+
+[dev-dependencies]
+sim-lib-femm-fixtures = { version = "0.1.0", path = "../sim-lib-femm-fixtures" }

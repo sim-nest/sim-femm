@@ -1,0 +1,5 @@
+book = "femm-geometry"
+title = "FEMM Geometry"
+summary = "Geometry descriptor and artifact-reference examples."
+order = 301
+chapters = ["01-basics"]
