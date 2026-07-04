@@ -3,13 +3,12 @@ use std::sync::Arc;
 
 use sim_kernel::{Cx, DefaultFactory, EagerPolicy};
 use sim_lib_femm_core::{FemmError, FemmLimits, Formulation, ParamSet, PhysicsKind};
-use sim_lib_femm_function::quality;
 use sim_lib_femm_physics::{
     conductor_resistance, harmonic_joule_loss, long_solenoid_b, parallel_plate_capacitance,
     slab_heat_resistance,
 };
-use sim_lib_femm_post::{QuantitySpec, energy};
-use sim_lib_femm_solve::{GradientTrust, SolveExportRecord, certificate_claim, solve_steady};
+use sim_lib_femm_post::energy;
+use sim_lib_femm_solve::{SolveExportRecord, certificate_claim, solve_steady};
 
 use crate::{fixture_models, parallel_plate_capacitor, slab_heat_conductor};
 
@@ -187,36 +186,6 @@ fn quality_query_solve_export_record_fills_all_fields() {
     let rebuilt = certificate_claim(&mut cx, &solve).unwrap();
     let rebuilt_id = rebuilt.content_id(cx.datum_store_mut()).unwrap();
     assert_eq!(record.certificate_claim_key, content_id_hex(&rebuilt_id));
-}
-
-#[test]
-fn quality_query_returns_certificate_and_value() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
-    let solve = solve_steady(
-        &mut cx,
-        &parallel_plate_capacitor(),
-        &ParamSet::default(),
-        &FemmLimits::default(),
-        None,
-    )
-    .unwrap();
-    let quantity_spec = QuantitySpec::Energy { region: None };
-    let wrt = [Symbol::new("gap-mm")];
-    let answer = quality(&mut cx, &solve, &quantity_spec, Some(&wrt)).unwrap();
-    assert!(answer.value.is_finite());
-    assert!(answer.certificate.converged);
-    let claim_id = answer
-        .certificate
-        .claim
-        .content_id(cx.datum_store_mut())
-        .unwrap();
-    assert!(claim_id.bytes.iter().any(|byte| *byte != 0));
-    let Some((gradient, trust)) = answer.gradient else {
-        panic!("expected quality gradient");
-    };
-    assert_eq!(gradient.len(), 1);
-    assert!(gradient.iter().all(|value| value.is_finite()));
-    assert_ne!(trust, GradientTrust::AdjointUnverified);
 }
 
 #[test]

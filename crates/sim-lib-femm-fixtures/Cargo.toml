@@ -19,6 +19,3 @@ sim-lib-femm-mesh = { version = "0.1.0", path = "../sim-lib-femm-mesh" }
 sim-lib-femm-physics = { version = "0.1.0", path = "../sim-lib-femm-physics" }
 sim-lib-femm-post = { version = "0.1.0", path = "../sim-lib-femm-post" }
 sim-lib-femm-solve = { version = "0.1.0", path = "../sim-lib-femm-solve" }
-
-[dev-dependencies]
-sim-lib-femm-function = { path = "../sim-lib-femm-function" }
