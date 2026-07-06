@@ -1,13 +1,13 @@
 use sim_kernel::{Cx, Symbol};
 use sim_lib_femm_core::{FemmError, FemmLimits, FemmResult, Formulation, ParamSet, PhysicsKind};
-use sim_lib_femm_function::ModelCallable;
+use sim_lib_femm_function::{ModelCallable, resolve_excitation};
 use sim_lib_femm_material::{Boundary, BoundaryKind, Material, Source};
 use sim_lib_femm_mesh::{FemMesh2, FemmModel};
 use sim_lib_femm_post::QuantitySpec;
 use sim_lib_femm_solve::{DenseFallbackSolver, solve_steady};
 use sim_lib_numbers_ad::Dual;
 
-use crate::implementation::eval_expr_dual;
+use crate::implementation::{eval_expr_dual, excitation_uses_symbol};
 use crate::sensitivity_mesh::differentiated_mesh;
 use crate::sensitivity_quantity::quantity_derivative;
 use crate::sensitivity_types::{DiffMesh, DiffSolution, DualGeom};
@@ -47,10 +47,20 @@ pub(crate) fn built_in_quantity_gradient(
     wrt: &[Symbol],
 ) -> FemmResult<Vec<(Symbol, f64)>> {
     let params = resolve_params(&callable.model, params);
+    let excitation = resolve_excitation(cx, &callable.model, &params, spec)?;
     wrt.iter()
         .map(|symbol| {
+            if excitation_uses_symbol(&callable.model, spec, symbol) {
+                // The exact analytic derivative assumes a parameter-independent
+                // drive; when the excitation itself depends on `symbol`, fail
+                // closed so the caller falls back to the (correct) finite-
+                // difference path rather than silently dropping the dI/dp term.
+                return Err(FemmError::SensitivityUnavailable(format!(
+                    "excitation depends on design parameter {symbol}"
+                )));
+            }
             let diff = differentiate_solution(cx, &callable.model, &params, symbol)?;
-            quantity_derivative(cx, &diff, spec).map(|value| (symbol.clone(), value))
+            quantity_derivative(cx, &diff, spec, &excitation).map(|value| (symbol.clone(), value))
         })
         .collect()
 }

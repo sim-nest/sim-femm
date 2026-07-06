@@ -1,6 +1,6 @@
 use sim_kernel::{Cx, Symbol};
 use sim_lib_femm_core::{FemmError, FemmResult};
-use sim_lib_femm_post::{FemmSolution, QuantitySpec};
+use sim_lib_femm_post::{Excitation, FemmSolution, QuantitySpec};
 use sim_lib_numbers_ad::{Dual, Scalarish};
 
 use crate::sensitivity_solve::{axisymmetric_weight, dual_geom};
@@ -10,6 +10,7 @@ pub(crate) fn quantity_derivative(
     cx: &mut Cx,
     diff: &DiffSolution,
     spec: &QuantitySpec,
+    excitation: &Excitation,
 ) -> FemmResult<f64> {
     let value = match spec {
         QuantitySpec::Energy { region } | QuantitySpec::Coenergy { region } => {
@@ -21,9 +22,20 @@ pub(crate) fn quantity_derivative(
             let centroid = region_centroid_x(diff, region)?;
             (force * (centroid - Dual::cst(center[0]))).d[0]
         }
-        QuantitySpec::FluxLinkage { .. } => region_energy(diff, None)?.sqrt().d[0],
-        QuantitySpec::Inductance { .. } | QuantitySpec::Capacitance { .. } => {
-            (region_energy(diff, None)? * Dual::cst(2.0)).d[0]
+        QuantitySpec::FluxLinkage { .. } => {
+            let current = require_current(excitation, "flux linkage")?;
+            // lambda = 2W/I  =>  d(lambda)/dp = (2/I) dW/dp for a fixed current.
+            2.0 * region_energy(diff, None)?.d[0] / current
+        }
+        QuantitySpec::Inductance { .. } => {
+            let current = require_current(excitation, "inductance")?;
+            // L = 2W/I^2  =>  dL/dp = (2/I^2) dW/dp for a fixed current.
+            2.0 * region_energy(diff, None)?.d[0] / (current * current)
+        }
+        QuantitySpec::Capacitance { .. } => {
+            let potential = require_potential(excitation, "capacitance")?;
+            // C = 2W/V^2  =>  dC/dp = (2/V^2) dW/dp for a fixed potential.
+            2.0 * region_energy(diff, None)?.d[0] / (potential * potential)
         }
         QuantitySpec::JouleLoss { region } => joule_loss(diff, region.as_ref())?.d[0],
         QuantitySpec::FieldAt { field, points } => {
@@ -38,6 +50,36 @@ pub(crate) fn quantity_derivative(
     };
     let _ = cx;
     Ok(value)
+}
+
+/// Requires a nonzero coil current, mirroring the forward `quantity` guard.
+///
+/// The exact derivative of a current-referenced quantity (`lambda = 2W/I`,
+/// `L = 2W/I^2`) is undefined without a drive, so it fails closed exactly like
+/// the forward value rather than reporting a spurious sensitivity.
+fn require_current(excitation: &Excitation, quantity: &str) -> FemmResult<f64> {
+    let current = excitation
+        .current()
+        .ok_or_else(|| FemmError::FieldOutOfDomain(format!("{quantity} needs a coil current")))?;
+    if current == 0.0 {
+        return Err(FemmError::InvalidGeometry(format!(
+            "{quantity} undefined at zero current"
+        )));
+    }
+    Ok(current)
+}
+
+/// Requires a nonzero applied potential, mirroring the forward `quantity` guard.
+fn require_potential(excitation: &Excitation, quantity: &str) -> FemmResult<f64> {
+    let potential = excitation.potential().ok_or_else(|| {
+        FemmError::FieldOutOfDomain(format!("{quantity} needs an applied potential"))
+    })?;
+    if potential == 0.0 {
+        return Err(FemmError::InvalidGeometry(format!(
+            "{quantity} undefined at zero potential"
+        )));
+    }
+    Ok(potential)
 }
 
 fn region_energy(diff: &DiffSolution, region: Option<&Symbol>) -> FemmResult<Dual<1>> {

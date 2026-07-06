@@ -7,7 +7,7 @@ use sim_lib_femm_core::{
 use sim_lib_femm_fixtures::gapped_ei_core_inductor;
 use sim_lib_femm_function::{ModelCallable, OutputQuery, resolve_excitation};
 use sim_lib_femm_geometry::{BlockLabel2, Geometry2, Node2, Segment2, dummy_origin};
-use sim_lib_femm_material::{Boundary, BoundaryKind, Material, MeshPolicy};
+use sim_lib_femm_material::{Boundary, BoundaryKind, Material, MeshPolicy, Source};
 use sim_lib_femm_post::{QuantitySpec, quantity};
 use sim_lib_femm_solve::{GradientTrust, solve_steady};
 use sim_lib_numbers_numeric::{NumericNumbersLib, global_numeric_registry, numeric_diff_symbol};
@@ -246,10 +246,21 @@ fn parametric_box_model() -> ModelCallable {
         heat_source: None,
         remanence: None,
     }];
+    // Applied potential 2.0 V, distinct from 1.0 so the capacitance derivative
+    // (2/V^2) dW/dp is numerically distinguishable from the old 2 dW/dp bug.
     callable.model.boundaries = vec![Boundary {
         name: sim_kernel::Symbol::new("wall"),
         kind: BoundaryKind::Dirichlet,
-        value: num("1.0"),
+        value: num("2.0"),
+    }];
+    // A parameter-independent coil so inductance/flux linkage are well-defined
+    // (current fixed at 2.0 A); geometry alone carries the width/height design
+    // parameters, keeping the drive independent of them.
+    callable.model.sources = vec![Source::CircuitCoil {
+        name: sim_kernel::Symbol::new("plate"),
+        region: sim_kernel::Symbol::new("air"),
+        turns: num("1.0"),
+        current: num("2.0"),
     }];
     callable
 }
@@ -417,6 +428,189 @@ fn scalar_fd_quantity_gradient(
     let exc_minus = resolve_excitation(cx, &callable.model, &minus, quantity_spec)?;
     let q_minus = quantity(&solved_minus.solution, quantity_spec, &exc_minus)?;
     Ok((q_plus - q_minus) / (2.0 * step))
+}
+
+fn replace_param(
+    cx: &mut Cx,
+    params: &ParamSet,
+    symbol: &sim_kernel::Symbol,
+    value: f64,
+) -> ParamSet {
+    let mut entries = params.entries.clone();
+    let replacement = cx
+        .factory()
+        .number_literal(
+            sim_kernel::Symbol::qualified("numbers", "f64"),
+            value.to_string(),
+        )
+        .unwrap();
+    if let Some((_, current)) = entries.iter_mut().find(|(name, _)| name == symbol) {
+        *current = replacement;
+    } else {
+        entries.push((symbol.clone(), replacement));
+    }
+    ParamSet::new(entries)
+}
+
+/// Central finite difference of the corrected forward [`quantity`] for `symbol`.
+///
+/// Re-resolves the excitation on each perturbed solve, so it is the independent
+/// oracle the analytic derivative is checked against.
+fn central_fd_quantity_gradient(
+    cx: &mut Cx,
+    callable: &ModelCallable,
+    params: &ParamSet,
+    spec: &QuantitySpec,
+    symbol: &sim_kernel::Symbol,
+) -> sim_lib_femm_core::FemmResult<f64> {
+    let base = sim_lib_femm_core::value_as_f64(cx, params.get(symbol).unwrap())?;
+    let step = 1.490_116_119_384_765_6e-8 * base.abs().max(1.0);
+    let plus = replace_param(cx, params, symbol, base + step);
+    let minus = replace_param(cx, params, symbol, base - step);
+    let solved_plus = solve_steady(cx, &callable.model, &plus, &FemmLimits::default(), None)?;
+    let exc_plus = resolve_excitation(cx, &callable.model, &plus, spec)?;
+    let q_plus = quantity(&solved_plus.solution, spec, &exc_plus)?;
+    let solved_minus = solve_steady(cx, &callable.model, &minus, &FemmLimits::default(), None)?;
+    let exc_minus = resolve_excitation(cx, &callable.model, &minus, spec)?;
+    let q_minus = quantity(&solved_minus.solution, spec, &exc_minus)?;
+    Ok((q_plus - q_minus) / (2.0 * step))
+}
+
+#[test]
+fn linear_builtin_derivatives_match_finite_difference() {
+    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let callable = parametric_box_model();
+    let params = width_height_params(&mut cx);
+    let width = sim_kernel::Symbol::new("width");
+    let specs = [
+        QuantitySpec::Inductance {
+            circuit: sim_kernel::Symbol::new("plate"),
+        },
+        QuantitySpec::FluxLinkage {
+            circuit: sim_kernel::Symbol::new("plate"),
+        },
+        QuantitySpec::Capacitance {
+            conductor: sim_kernel::Symbol::new("wall"),
+        },
+    ];
+    for spec in specs {
+        let (gradient, path) = adjoint_gradient(
+            &mut cx,
+            &callable,
+            OutputQuery::Quantity(spec.clone()),
+            params.clone(),
+            std::slice::from_ref(&width),
+        )
+        .unwrap();
+        assert_eq!(
+            path,
+            SensitivityPath::AdjointExact,
+            "expected the exact analytic path for {spec:?}"
+        );
+        let analytic = gradient[0].1;
+        let fd = central_fd_quantity_gradient(&mut cx, &callable, &params, &spec, &width).unwrap();
+        assert!(
+            (analytic - fd).abs() < 1.0e-4,
+            "{spec:?}: analytic {analytic} vs fd {fd}"
+        );
+    }
+}
+
+#[test]
+fn excitation_dependent_inductance_falls_back_to_finite_difference() {
+    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut callable = parametric_box_model();
+    // A drive that itself depends on the design parameter: dI/dp != 0.
+    callable.model.sources = vec![Source::CircuitCoil {
+        name: sim_kernel::Symbol::new("plate"),
+        region: sim_kernel::Symbol::new("air"),
+        turns: num("1.0"),
+        current: Expr::Symbol(sim_kernel::Symbol::new("width")),
+    }];
+    let params = width_height_params(&mut cx);
+    let width = sim_kernel::Symbol::new("width");
+    let spec = QuantitySpec::Inductance {
+        circuit: sim_kernel::Symbol::new("plate"),
+    };
+    // The exact analytic path must refuse rather than drop the dI/dp term.
+    assert!(
+        adjoint_gradient(
+            &mut cx,
+            &callable,
+            OutputQuery::Quantity(spec.clone()),
+            params.clone(),
+            std::slice::from_ref(&width),
+        )
+        .is_err(),
+        "excitation-dependent inductance must not use the exact analytic path"
+    );
+    // total_gradient turns that refusal into a finite-difference fallback.
+    let mut solve = solve_steady(
+        &mut cx,
+        &callable.model,
+        &params,
+        &FemmLimits::default(),
+        None,
+    )
+    .unwrap();
+    let result = total_gradient(
+        &mut cx,
+        &callable,
+        &mut solve,
+        std::slice::from_ref(&spec),
+        std::slice::from_ref(&width),
+    )
+    .unwrap();
+    assert!(matches!(
+        result.trust[0],
+        GradientTrust::FiniteDifferenceOnly
+    ));
+    assert!(result.gradient[0][0].is_finite());
+}
+
+#[test]
+fn nonlinear_state_derivative_is_energy_only() {
+    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let callable = ModelCallable {
+        model: gapped_ei_core_inductor(),
+    };
+    let params = gap_mm_params(&mut cx, "1.0");
+    let solve = solve_steady(
+        &mut cx,
+        &callable.model,
+        &params,
+        &FemmLimits::default(),
+        None,
+    )
+    .unwrap();
+    // Energy has a closed-form state derivative; inductance/flux/capacitance do
+    // not, so the nonlinear adjoint stays on its correct finite-difference path.
+    assert!(
+        crate::nonlinear_adjoint::quantity_state_derivative(
+            &solve.solution,
+            &QuantitySpec::Energy { region: None },
+        )
+        .unwrap()
+        .is_some()
+    );
+    for spec in [
+        QuantitySpec::Inductance {
+            circuit: sim_kernel::Symbol::new("coil"),
+        },
+        QuantitySpec::FluxLinkage {
+            circuit: sim_kernel::Symbol::new("coil"),
+        },
+        QuantitySpec::Capacitance {
+            conductor: sim_kernel::Symbol::new("plate"),
+        },
+    ] {
+        assert!(
+            crate::nonlinear_adjoint::quantity_state_derivative(&solve.solution, &spec)
+                .unwrap()
+                .is_none(),
+            "{spec:?} must have no closed-form state derivative"
+        );
+    }
 }
 
 #[test]

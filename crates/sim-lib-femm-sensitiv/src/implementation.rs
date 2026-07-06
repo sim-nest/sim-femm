@@ -10,8 +10,9 @@ use std::sync::Arc;
 use sim_kernel::{Cx, Expr, Result as KernelResult, Symbol, Value};
 use sim_lib_femm_core::{FemmError, FemmResult, ParamSet};
 use sim_lib_femm_function::{FemmFuncPayload, ModelCallable, OutputQuery};
-use sim_lib_femm_material::{Boundary, Material, MeshPolicy, Source};
+use sim_lib_femm_material::{Boundary, BoundaryKind, Material, MeshPolicy, Source};
 use sim_lib_femm_mesh::FemmModel;
+use sim_lib_femm_post::QuantitySpec;
 use sim_lib_numbers_ad::{Dual, Scalarish, Tape, Var};
 use sim_lib_numbers_func::Func;
 use sim_lib_numbers_numeric::{
@@ -392,6 +393,39 @@ impl Differentiator for FemmAdjointPlugin {
 /// `grad`/`diff` requests into [`adjoint_gradient`].
 pub fn register_femm_adjoint() -> KernelResult<()> {
     register_differentiator(Arc::new(FemmAdjointPlugin))
+}
+
+/// Whether the excitation a derived quantity is measured against depends on
+/// `symbol`.
+///
+/// Inductance and flux linkage are referenced to a coil current and capacitance
+/// to an applied potential. The exact analytic derivative assumes that drive is
+/// independent of the design parameter (so `dW/dp` alone fixes the sensitivity);
+/// when the drive expression itself uses `symbol`, that assumption fails and the
+/// caller must fall back to finite differences instead of silently dropping the
+/// `dI/dp` (or `dV/dp`) term.
+pub(crate) fn excitation_uses_symbol(
+    model: &FemmModel,
+    spec: &QuantitySpec,
+    symbol: &Symbol,
+) -> bool {
+    match spec {
+        QuantitySpec::Inductance { circuit } | QuantitySpec::FluxLinkage { circuit } => {
+            model.sources.iter().any(|source| {
+                matches!(
+                    source,
+                    Source::CircuitCoil { name, current, .. }
+                        if name == circuit && expr_uses_symbol(current, symbol)
+                )
+            })
+        }
+        QuantitySpec::Capacitance { conductor } => model.boundaries.iter().any(|boundary| {
+            &boundary.name == conductor
+                && matches!(boundary.kind, BoundaryKind::Dirichlet)
+                && expr_uses_symbol(&boundary.value, symbol)
+        }),
+        _ => false,
+    }
 }
 
 fn model_uses_symbol(model: &FemmModel, symbol: &Symbol) -> bool {

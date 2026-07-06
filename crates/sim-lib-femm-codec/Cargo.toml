@@ -22,6 +22,7 @@ sim-lib-femm-mesh = { version = "0.1.0", path = "../sim-lib-femm-mesh" }
 sim-lib-femm-post = { version = "0.1.0", path = "../sim-lib-femm-post" }
 
 [dev-dependencies]
+sim-kernel = { version = "0.1", features = ["test-support"] }
 sim-codec = { version = "0.1.0" }
 sim-codec-algol = { version = "0.1.0" }
 sim-codec-binary = { version = "0.1.0" }

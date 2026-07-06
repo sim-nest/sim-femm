@@ -159,7 +159,7 @@ fn exact_nonlinear_adjoint(
     }
 }
 
-fn quantity_state_derivative(
+pub(crate) fn quantity_state_derivative(
     solution: &FemmSolution,
     quantity_spec: &QuantitySpec,
 ) -> FemmResult<Option<Vec<f64>>> {
