@@ -12,8 +12,9 @@ use sim_kernel::{
 };
 use sim_lib_femm_core::{FemmError, FemmLimits, FemmResult, ParamSet, StableId, value_as_f64};
 use sim_lib_femm_field::{Field, Projection, field_as_func};
+use sim_lib_femm_material::{BoundaryKind, Source};
 use sim_lib_femm_mesh::FemmModel;
-use sim_lib_femm_post::{FemmSolution, QuantitySpec, quantity};
+use sim_lib_femm_post::{Excitation, FemmSolution, QuantitySpec, quantity};
 use sim_lib_femm_solve::{GradientTrust, SolveCertificate, SteadySolve, solve_steady};
 use sim_lib_numbers_func::{Func, FuncMetadata};
 
@@ -225,7 +226,8 @@ impl FemmCallable for ModelCallable {
             }
             OutputQuery::Quantity(spec) => {
                 let solution = self.solve_solution(cx, &resolved, &call.limits)?;
-                let scalar = quantity(&solution, &spec)?;
+                let excitation = resolve_excitation(cx, &self.model, &resolved, &spec)?;
+                let scalar = quantity(&solution, &spec, &excitation)?;
                 Ok(FemmEval {
                     value: cx
                         .factory()
@@ -262,6 +264,66 @@ impl FemmCallable for ModelCallable {
     }
 }
 
+/// Resolves the [`Excitation`] a derived quantity is evaluated against.
+///
+/// Inductance and flux linkage read the driving current of the named circuit
+/// coil source; capacitance reads the applied potential of the named conductor
+/// (its Dirichlet boundary). Quantities that do not depend on an excitation
+/// resolve to [`Excitation::none`]. A source the model does not define leaves
+/// the excitation unset, so [`quantity`] reports the precise missing-drive
+/// error rather than a silent wrong value.
+pub fn resolve_excitation(
+    cx: &mut Cx,
+    model: &FemmModel,
+    params: &ParamSet,
+    spec: &QuantitySpec,
+) -> FemmResult<Excitation> {
+    match spec {
+        QuantitySpec::Inductance { circuit } | QuantitySpec::FluxLinkage { circuit } => {
+            Ok(coil_current(cx, model, params, circuit)?
+                .map(Excitation::with_current)
+                .unwrap_or_else(Excitation::none))
+        }
+        QuantitySpec::Capacitance { conductor } => {
+            Ok(conductor_potential(cx, model, params, conductor)?
+                .map(Excitation::with_potential)
+                .unwrap_or_else(Excitation::none))
+        }
+        _ => Ok(Excitation::none()),
+    }
+}
+
+fn coil_current(
+    cx: &mut Cx,
+    model: &FemmModel,
+    params: &ParamSet,
+    circuit: &Symbol,
+) -> FemmResult<Option<f64>> {
+    for source in &model.sources {
+        if let Source::CircuitCoil { name, current, .. } = source
+            && name == circuit
+        {
+            return sim_lib_femm_geometry::eval_expr_f64(cx, current, params, &[]).map(Some);
+        }
+    }
+    Ok(None)
+}
+
+fn conductor_potential(
+    cx: &mut Cx,
+    model: &FemmModel,
+    params: &ParamSet,
+    conductor: &Symbol,
+) -> FemmResult<Option<f64>> {
+    for boundary in &model.boundaries {
+        if &boundary.name == conductor && matches!(boundary.kind, BoundaryKind::Dirichlet) {
+            return sim_lib_femm_geometry::eval_expr_f64(cx, &boundary.value, params, &[])
+                .map(Some);
+        }
+    }
+    Ok(None)
+}
+
 /// Returns the requested quantity and the certificate for a completed solve.
 ///
 /// Passing `Some(params)` for `wrt` also computes a total finite-difference
@@ -273,7 +335,8 @@ pub fn quality(
     quantity_spec: &QuantitySpec,
     wrt: Option<&[Symbol]>,
 ) -> FemmResult<QualityAnswer> {
-    let value = quantity(&solve.solution, quantity_spec)?;
+    let excitation = resolve_excitation(cx, &solve.model, &solve.solution.params, quantity_spec)?;
+    let value = quantity(&solve.solution, quantity_spec, &excitation)?;
     let mut certificate = solve.certificate.clone();
     let gradient = match wrt {
         None => None,
@@ -329,7 +392,8 @@ fn quality_at_params(
     quantity_spec: &QuantitySpec,
 ) -> FemmResult<f64> {
     let solved = solve_steady(cx, model, &params, &FemmLimits::default(), None)?;
-    quantity(&solved.solution, quantity_spec)
+    let excitation = resolve_excitation(cx, model, &params, quantity_spec)?;
+    quantity(&solved.solution, quantity_spec, &excitation)
 }
 
 fn replace_param_value(

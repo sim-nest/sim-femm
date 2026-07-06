@@ -3,7 +3,9 @@ use sim_lib_femm_core::{FemmError, FemmLimits, Formulation, ParamSet, PhysicsKin
 use sim_lib_femm_flow::SolveDiagnostics;
 use sim_lib_femm_mesh::FemMesh2;
 
-use crate::{FemmSolution, QuantitySpec, energy, quantity, sample_grid, sample_potential};
+use crate::{
+    Excitation, FemmSolution, QuantitySpec, energy, quantity, sample_grid, sample_potential,
+};
 
 fn solution() -> FemmSolution {
     FemmSolution {
@@ -63,6 +65,7 @@ fn missing_region_is_named_in_errors() {
         &QuantitySpec::ForceY {
             region: Symbol::new("missing"),
         },
+        &Excitation::none(),
     )
     .unwrap_err();
     assert!(err.to_string().contains("missing"));
@@ -71,13 +74,15 @@ fn missing_region_is_named_in_errors() {
 #[test]
 fn scalar_quantities_cover_regions_circuits_and_losses() {
     let solution = solution();
-    assert!(quantity(&solution, &QuantitySpec::Energy { region: None }).unwrap() > 0.0);
+    let none = Excitation::none();
+    assert!(quantity(&solution, &QuantitySpec::Energy { region: None }, &none).unwrap() > 0.0);
     assert!(
         quantity(
             &solution,
             &QuantitySpec::Energy {
                 region: Some(Symbol::new("air"))
-            }
+            },
+            &none,
         )
         .unwrap()
             > 0.0
@@ -87,7 +92,8 @@ fn scalar_quantities_cover_regions_circuits_and_losses() {
             &solution,
             &QuantitySpec::ForceY {
                 region: Symbol::new("air")
-            }
+            },
+            &none,
         )
         .unwrap()
             < 0.0
@@ -98,7 +104,8 @@ fn scalar_quantities_cover_regions_circuits_and_losses() {
             &QuantitySpec::Torque {
                 region: Symbol::new("air"),
                 center: [0.0, 0.0],
-            }
+            },
+            &none,
         )
         .unwrap()
             < 0.0
@@ -108,7 +115,8 @@ fn scalar_quantities_cover_regions_circuits_and_losses() {
             &solution,
             &QuantitySpec::FluxLinkage {
                 circuit: Symbol::new("coil")
-            }
+            },
+            &Excitation::with_current(2.0),
         )
         .unwrap()
             > 0.0
@@ -118,7 +126,8 @@ fn scalar_quantities_cover_regions_circuits_and_losses() {
             &solution,
             &QuantitySpec::Inductance {
                 circuit: Symbol::new("coil")
-            }
+            },
+            &Excitation::with_current(2.0),
         )
         .unwrap()
             > 0.0
@@ -128,12 +137,83 @@ fn scalar_quantities_cover_regions_circuits_and_losses() {
             &solution,
             &QuantitySpec::Capacitance {
                 conductor: Symbol::new("plate")
-            }
+            },
+            &Excitation::with_potential(2.0),
         )
         .unwrap()
             > 0.0
     );
-    assert!(quantity(&solution, &QuantitySpec::JouleLoss { region: None }).unwrap() > 0.0);
+    assert!(quantity(&solution, &QuantitySpec::JouleLoss { region: None }, &none).unwrap() > 0.0);
+}
+
+#[test]
+fn inductance_scales_with_current_squared() {
+    let solution = solution();
+    let w = energy(&solution).unwrap();
+    let l = quantity(
+        &solution,
+        &QuantitySpec::Inductance {
+            circuit: Symbol::new("coil"),
+        },
+        &Excitation::with_current(2.0),
+    )
+    .unwrap();
+    // L = 2W / I^2 with I = 2, i.e. 2W/4 -- NOT the old 2W.
+    assert!((l - 2.0 * w / 4.0).abs() < 1.0e-12);
+    assert!((l - 2.0 * w).abs() > 1.0e-9);
+}
+
+#[test]
+fn flux_linkage_is_two_energy_over_current() {
+    let solution = solution();
+    let w = energy(&solution).unwrap();
+    let lambda = quantity(
+        &solution,
+        &QuantitySpec::FluxLinkage {
+            circuit: Symbol::new("coil"),
+        },
+        &Excitation::with_current(3.0),
+    )
+    .unwrap();
+    assert!((lambda - 2.0 * w / 3.0).abs() < 1.0e-12);
+}
+
+#[test]
+fn missing_or_zero_excitation_is_rejected() {
+    let solution = solution();
+    let missing = quantity(
+        &solution,
+        &QuantitySpec::Inductance {
+            circuit: Symbol::new("coil"),
+        },
+        &Excitation::none(),
+    )
+    .unwrap_err();
+    assert!(missing.to_string().contains("current"));
+
+    let zero = quantity(
+        &solution,
+        &QuantitySpec::Capacitance {
+            conductor: Symbol::new("plate"),
+        },
+        &Excitation::with_potential(0.0),
+    )
+    .unwrap_err();
+    assert!(zero.to_string().contains("potential"));
+}
+
+#[test]
+fn custom_quantity_errors_rather_than_returning_zero() {
+    let err = quantity(
+        &solution(),
+        &QuantitySpec::Custom {
+            name: Symbol::new("mine"),
+            expr: sim_kernel::Expr::Symbol(Symbol::new("mine")),
+        },
+        &Excitation::none(),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("custom quantity"));
 }
 
 #[test]

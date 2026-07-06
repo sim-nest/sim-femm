@@ -2,7 +2,7 @@
 
 use sim_kernel::{Cx, Symbol};
 use sim_lib_femm_core::{FemmError, FemmLimits, FemmResult, ParamSet, value_as_f64};
-use sim_lib_femm_function::{ModelCallable, OutputQuery};
+use sim_lib_femm_function::{ModelCallable, OutputQuery, resolve_excitation};
 use sim_lib_femm_post::{QuantitySpec, quantity};
 use sim_lib_femm_solve::{GradientTrust, SteadySolve, solve_steady};
 
@@ -135,7 +135,8 @@ fn evaluate_quantity(
     quantity_spec: &QuantitySpec,
 ) -> FemmResult<f64> {
     let solved = solve_steady(cx, &callable.model, params, &FemmLimits::default(), None)?;
-    quantity(&solved.solution, quantity_spec)
+    let excitation = resolve_excitation(cx, &callable.model, params, quantity_spec)?;
+    quantity(&solved.solution, quantity_spec, &excitation)
 }
 
 fn resolve_params(callable: &ModelCallable, params: ParamSet) -> FemmResult<ParamSet> {

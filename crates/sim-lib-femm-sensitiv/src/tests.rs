@@ -5,7 +5,7 @@ use sim_lib_femm_core::{
     FemmLimits, Formulation, LengthUnit, ParamRole, ParamSet, ParamSpec, PhysicsKind, StableId,
 };
 use sim_lib_femm_fixtures::gapped_ei_core_inductor;
-use sim_lib_femm_function::{ModelCallable, OutputQuery};
+use sim_lib_femm_function::{ModelCallable, OutputQuery, resolve_excitation};
 use sim_lib_femm_geometry::{BlockLabel2, Geometry2, Node2, Segment2, dummy_origin};
 use sim_lib_femm_material::{Boundary, BoundaryKind, Material, MeshPolicy};
 use sim_lib_femm_post::{QuantitySpec, quantity};
@@ -410,10 +410,12 @@ fn scalar_fd_quantity_gradient(
     let step = 1.490_116_119_384_765_6e-8 * base.abs().max(1.0);
     let plus = gap_mm_params(cx, &(base + step).to_string());
     let minus = gap_mm_params(cx, &(base - step).to_string());
-    let q_plus = solve_steady(cx, &callable.model, &plus, &FemmLimits::default(), None)
-        .and_then(|solved| quantity(&solved.solution, quantity_spec))?;
-    let q_minus = solve_steady(cx, &callable.model, &minus, &FemmLimits::default(), None)
-        .and_then(|solved| quantity(&solved.solution, quantity_spec))?;
+    let solved_plus = solve_steady(cx, &callable.model, &plus, &FemmLimits::default(), None)?;
+    let exc_plus = resolve_excitation(cx, &callable.model, &plus, quantity_spec)?;
+    let q_plus = quantity(&solved_plus.solution, quantity_spec, &exc_plus)?;
+    let solved_minus = solve_steady(cx, &callable.model, &minus, &FemmLimits::default(), None)?;
+    let exc_minus = resolve_excitation(cx, &callable.model, &minus, quantity_spec)?;
+    let q_minus = quantity(&solved_minus.solution, quantity_spec, &exc_minus)?;
     Ok((q_plus - q_minus) / (2.0 * step))
 }
 

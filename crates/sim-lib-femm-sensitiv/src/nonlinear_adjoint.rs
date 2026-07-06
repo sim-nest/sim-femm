@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use sim_kernel::{Cx, Symbol};
 use sim_lib_femm_core::{FemmError, FemmLimits, FemmResult, ParamSet, value_as_f64};
-use sim_lib_femm_function::ModelCallable;
+use sim_lib_femm_function::{ModelCallable, resolve_excitation};
 use sim_lib_femm_geometry::eval_expr_f64;
 use sim_lib_femm_material::BoundaryKind;
 use sim_lib_femm_mesh::{DeterministicMesher, FemmModel, Mesher};
-use sim_lib_femm_post::{FemmSolution, QuantitySpec, quantity};
+use sim_lib_femm_post::{Excitation, FemmSolution, QuantitySpec, quantity};
 use sim_lib_femm_solve::{DenseFallbackSolver, GradientTrust, SteadySolve, solve_steady};
 use sim_lib_femm_space::ElementGeom;
 
@@ -25,12 +25,16 @@ struct ParamJacobianColumn {
 }
 
 impl ParamJacobian {
-    fn quantity_gradient(&self, spec: &QuantitySpec) -> FemmResult<Vec<f64>> {
+    fn quantity_gradient(
+        &self,
+        spec: &QuantitySpec,
+        excitation: &Excitation,
+    ) -> FemmResult<Vec<f64>> {
         self.columns
             .iter()
             .map(|column| {
-                let q_plus = quantity(&column.plus, spec)?;
-                let q_minus = quantity(&column.minus, spec)?;
+                let q_plus = quantity(&column.plus, spec, excitation)?;
+                let q_minus = quantity(&column.minus, spec, excitation)?;
                 let value = (q_plus - q_minus) / (2.0 * column.step);
                 if value.is_finite() {
                     Ok(value)
@@ -58,7 +62,8 @@ pub(crate) fn nonlinear_adjoint_gradient(
         ));
     }
     let jacobian = assemble_param_jacobian(cx, callable, solve, params, wrt)?;
-    if let Some(gradient) = exact_nonlinear_adjoint(solve, quantity_spec, &jacobian)? {
+    let excitation = resolve_excitation(cx, &callable.model, params, quantity_spec)?;
+    if let Some(gradient) = exact_nonlinear_adjoint(solve, quantity_spec, &jacobian, &excitation)? {
         return Ok((
             gradient,
             GradientTrust::AdjointVerified {
@@ -67,7 +72,7 @@ pub(crate) fn nonlinear_adjoint_gradient(
         ));
     }
     Ok((
-        jacobian.quantity_gradient(quantity_spec)?,
+        jacobian.quantity_gradient(quantity_spec, &excitation)?,
         GradientTrust::FiniteDifferenceOnly,
     ))
 }
@@ -124,6 +129,7 @@ fn exact_nonlinear_adjoint(
     solve: &SteadySolve,
     quantity_spec: &QuantitySpec,
     jacobian: &ParamJacobian,
+    excitation: &Excitation,
 ) -> FemmResult<Option<Vec<f64>>> {
     let Some(dq_du) = quantity_state_derivative(&solve.solution, quantity_spec)? else {
         return Ok(None);
@@ -145,7 +151,7 @@ fn exact_nonlinear_adjoint(
                 .sum::<f64>(),
         );
     }
-    let finite_difference = jacobian.quantity_gradient(quantity_spec)?;
+    let finite_difference = jacobian.quantity_gradient(quantity_spec, excitation)?;
     if verified_against_fd(&gradient, &finite_difference) {
         Ok(Some(gradient))
     } else {

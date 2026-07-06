@@ -246,6 +246,55 @@ pub enum QuantitySpec {
     },
 }
 
+/// The circuit excitation a derived quantity is evaluated against.
+///
+/// Inductance and flux linkage are defined relative to the driving coil
+/// current, and capacitance relative to the applied conductor potential; the
+/// stored field energy alone does not determine them. This carries the resolved
+/// excitation scalar so [`quantity`] can compute `L = 2W/I^2`, `lambda = 2W/I`,
+/// and `C = 2W/V^2` instead of silently assuming a unit drive.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Excitation {
+    current: Option<f64>,
+    potential: Option<f64>,
+}
+
+impl Excitation {
+    /// An excitation with neither a current nor a potential specified.
+    ///
+    /// Quantities that need one (inductance, flux linkage, capacitance) error
+    /// rather than return a physically meaningless value.
+    pub fn none() -> Self {
+        Self::default()
+    }
+
+    /// An excitation carrying a coil `current` in amperes.
+    pub fn with_current(current: f64) -> Self {
+        Self {
+            current: Some(current),
+            potential: None,
+        }
+    }
+
+    /// An excitation carrying an applied `potential` in volts.
+    pub fn with_potential(potential: f64) -> Self {
+        Self {
+            current: None,
+            potential: Some(potential),
+        }
+    }
+
+    /// The driving coil current, if one was resolved.
+    pub fn current(&self) -> Option<f64> {
+        self.current
+    }
+
+    /// The applied conductor potential, if one was resolved.
+    pub fn potential(&self) -> Option<f64> {
+        self.potential
+    }
+}
+
 /// Samples the scalar potential of a solution at `(x, y)`.
 ///
 /// Locates the containing triangle and interpolates the nodal values with the
@@ -363,12 +412,21 @@ pub fn sample_grid(
     Ok(out)
 }
 
-/// Evaluates a derived scalar quantity from a solution.
+/// Evaluates a derived scalar quantity from a solution and its excitation.
 ///
 /// Dispatches on the [`QuantitySpec`] to compute energy, force, torque, flux,
-/// inductance, capacitance, loss, or a sampled field. Unknown regions and
-/// out-of-domain samples surface as [`FemmError`].
-pub fn quantity(solution: &FemmSolution, spec: &QuantitySpec) -> FemmResult<f64> {
+/// inductance, capacitance, loss, or a sampled field. Inductance and flux
+/// linkage are taken relative to the coil current in `excitation`, and
+/// capacitance relative to its applied potential, via the linear
+/// magnetostatic/electrostatic identity `W = 0.5*L*I^2` (`C = 2W/V^2`); a
+/// missing or zero excitation is rejected with a [`FemmError`] rather than
+/// returning a physically wrong scalar. Unknown regions, out-of-domain samples,
+/// and unimplemented custom quantities also surface as [`FemmError`].
+pub fn quantity(
+    solution: &FemmSolution,
+    spec: &QuantitySpec,
+    excitation: &Excitation,
+) -> FemmResult<f64> {
     match spec {
         QuantitySpec::Energy { region } | QuantitySpec::Coenergy { region } => {
             region_energy(solution, region.as_ref())
@@ -381,17 +439,54 @@ pub fn quantity(solution: &FemmSolution, spec: &QuantitySpec) -> FemmResult<f64>
                 Ok(force)
             }
         }
-        QuantitySpec::FluxLinkage { .. } => Ok(energy(solution)?.sqrt()),
-        QuantitySpec::Inductance { .. } | QuantitySpec::Capacitance { .. } => {
-            Ok(2.0 * energy(solution)?)
+        QuantitySpec::FluxLinkage { .. } => {
+            let current = require_current(excitation, "flux linkage")?;
+            // lambda = 2W / I for a linear magnetostatic solve.
+            Ok(2.0 * energy(solution)? / current)
+        }
+        QuantitySpec::Inductance { .. } => {
+            let current = require_current(excitation, "inductance")?;
+            // W = 0.5*L*I^2  =>  L = 2W / I^2.
+            Ok(2.0 * energy(solution)? / (current * current))
+        }
+        QuantitySpec::Capacitance { .. } => {
+            let potential = require_potential(excitation, "capacitance")?;
+            // W = 0.5*C*V^2  =>  C = 2W / V^2.
+            Ok(2.0 * energy(solution)? / (potential * potential))
         }
         QuantitySpec::JouleLoss { region } => joule_loss(solution, region.as_ref()),
         QuantitySpec::FieldAt { field, points } => {
             let point = decode_point(points)?;
             sample_named_field(solution, field, point)
         }
-        QuantitySpec::Custom { .. } => Ok(0.0),
+        QuantitySpec::Custom { name, .. } => Err(FemmError::FieldOutOfDomain(format!(
+            "custom quantity {name} is not implemented"
+        ))),
     }
+}
+
+fn require_current(excitation: &Excitation, quantity: &str) -> FemmResult<f64> {
+    let current = excitation
+        .current()
+        .ok_or_else(|| FemmError::FieldOutOfDomain(format!("{quantity} needs a coil current")))?;
+    if current == 0.0 {
+        return Err(FemmError::InvalidGeometry(format!(
+            "{quantity} undefined at zero current"
+        )));
+    }
+    Ok(current)
+}
+
+fn require_potential(excitation: &Excitation, quantity: &str) -> FemmResult<f64> {
+    let potential = excitation.potential().ok_or_else(|| {
+        FemmError::FieldOutOfDomain(format!("{quantity} needs an applied potential"))
+    })?;
+    if potential == 0.0 {
+        return Err(FemmError::InvalidGeometry(format!(
+            "{quantity} undefined at zero potential"
+        )));
+    }
+    Ok(potential)
 }
 
 fn element_measure(solution: &FemmSolution, geom: &ElementGeom) -> FemmResult<f64> {

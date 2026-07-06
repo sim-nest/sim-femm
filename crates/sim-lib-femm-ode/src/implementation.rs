@@ -147,7 +147,14 @@ impl FemmOdeRhs {
                     .map_err(sim_kernel::Error::from)?;
                 let mut rhs_params = eval_params.clone();
                 for quantity in &need {
-                    let value = sim_lib_femm_post::quantity(&solution, quantity)
+                    let excitation = sim_lib_femm_function::resolve_excitation(
+                        cx,
+                        &model,
+                        &eval_params,
+                        quantity,
+                    )
+                    .map_err(sim_kernel::Error::from)?;
+                    let value = sim_lib_femm_post::quantity(&solution, quantity, &excitation)
                         .map_err(sim_kernel::Error::from)?;
                     rhs_params.entries.push((
                         quantity_name(quantity),

@@ -40,8 +40,13 @@ use sim_lib_femm_mesh::FemMesh2;
 pub struct ElementGeom {
     /// Vertex coordinates of the triangle, one `[x, y]` per node.
     pub xy: [[f64; 2]; 3],
-    /// Positive area of the triangle.
+    /// Positive (unsigned) area of the triangle, used as an integration measure.
     pub area: f64,
+    /// Signed area of the triangle (`0.5 * det`): positive for a
+    /// counter-clockwise winding, negative for a clockwise one. The basis
+    /// gradients and barycentric coordinates divide by this signed value so
+    /// interpolation stays orientation-consistent for either winding.
+    pub signed_area: f64,
     /// Constant gradient `[d/dx, d/dy]` of each nodal basis function.
     pub grad: [[f64; 2]; 3],
 }
@@ -59,17 +64,25 @@ impl ElementGeom {
         ];
         let area2 = (xy[1][0] - xy[0][0]) * (xy[2][1] - xy[0][1])
             - (xy[2][0] - xy[0][0]) * (xy[1][1] - xy[0][1]);
-        let area = 0.5 * area2.abs();
+        let signed_area = 0.5 * area2;
+        let area = signed_area.abs();
         if area <= f64::EPSILON {
             return Err(FemmError::InvalidGeometry("degenerate triangle".to_owned()));
         }
-        let denom = 2.0 * area;
+        // Divide by the signed area so a clockwise triangle keeps consistent
+        // basis gradients rather than sign-flipped ones.
+        let denom = 2.0 * signed_area;
         let grad = [
             [(xy[1][1] - xy[2][1]) / denom, (xy[2][0] - xy[1][0]) / denom],
             [(xy[2][1] - xy[0][1]) / denom, (xy[0][0] - xy[2][0]) / denom],
             [(xy[0][1] - xy[1][1]) / denom, (xy[1][0] - xy[0][0]) / denom],
         ];
-        Ok(Self { xy, area, grad })
+        Ok(Self {
+            xy,
+            area,
+            signed_area,
+            grad,
+        })
     }
 
     /// Returns the barycentric coordinates of `point` within the triangle.
@@ -77,7 +90,9 @@ impl ElementGeom {
     /// The three values are the P1 basis functions evaluated at `point` and sum
     /// to one; they lie in `[0, 1]` exactly when the point is inside the element.
     pub fn barycentric(&self, point: [f64; 2]) -> [f64; 3] {
-        let area = self.area * 2.0;
+        // Use the SIGNED area (consistent with `from_mesh`) so a clockwise
+        // triangle yields correctly signed coordinates rather than flipped ones.
+        let area = self.signed_area * 2.0;
         let lambda0 = ((self.xy[1][0] - point[0]) * (self.xy[2][1] - point[1])
             - (self.xy[2][0] - point[0]) * (self.xy[1][1] - point[1]))
             / area;
@@ -132,6 +147,31 @@ mod tests {
         let geom = test_geom();
         let lambda = geom.barycentric([0.2, 0.3]);
         assert!((lambda.iter().sum::<f64>() - 1.0).abs() < 1.0e-12);
+    }
+
+    #[test]
+    fn clockwise_triangle_barycentric_is_orientation_consistent() {
+        // Vertices wound clockwise: (0,0) -> (0,1) -> (1,0) has negative signed area.
+        let geom = ElementGeom::from_mesh(
+            &FemMesh2 {
+                xy: vec![[0.0, 0.0], [0.0, 1.0], [1.0, 0.0]],
+                tri: vec![[0, 1, 2]],
+                elem_region: vec![Symbol::new("air")],
+                edge_boundary: Vec::new(),
+            },
+            [0, 1, 2],
+        )
+        .unwrap();
+        assert!(geom.signed_area < 0.0);
+        assert!((geom.area - 0.5).abs() < 1.0e-12);
+        let lambda = geom.barycentric([0.2, 0.2]);
+        assert!((lambda.iter().sum::<f64>() - 1.0).abs() < 1.0e-12);
+        // An interior point has all-positive barycentric coordinates.
+        assert!(
+            lambda
+                .iter()
+                .all(|value| *value >= -1.0e-12 && *value <= 1.0 + 1.0e-12)
+        );
     }
 
     #[test]
