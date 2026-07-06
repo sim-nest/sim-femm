@@ -7,9 +7,9 @@ SIM workspace package for sim lib femm function.
 ## Package Metadata
 
 - Manifest: `crates/sim-lib-femm-function/Cargo.toml`
-- Publish: `false`
+- Publish: `true`
 - Targets: `lib`
 
 ## Crate Documentation
 
-SIM workspace package for sim lib femm function.
+FEMM models as first-class callable runtime functions.

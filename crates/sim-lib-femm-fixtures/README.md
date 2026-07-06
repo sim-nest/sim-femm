@@ -7,7 +7,7 @@ Deterministic FEMM model fixtures for codec, solve, ODE, and regression tests.
 ## Package Metadata
 
 - Manifest: `crates/sim-lib-femm-fixtures/Cargo.toml`
-- Publish: `false`
+- Publish: `true`
 - Targets: `lib`
 
 ## Crate Documentation

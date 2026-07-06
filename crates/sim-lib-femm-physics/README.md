@@ -7,9 +7,9 @@ SIM workspace package for sim lib femm physics.
 ## Package Metadata
 
 - Manifest: `crates/sim-lib-femm-physics/Cargo.toml`
-- Publish: `false`
+- Publish: `true`
 - Targets: `lib`
 
 ## Crate Documentation
 
-SIM workspace package for sim lib femm physics.
+Governing physics fronts for the supported FEMM formulations.

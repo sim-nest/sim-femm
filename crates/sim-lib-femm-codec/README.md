@@ -7,9 +7,9 @@ SIM workspace package for sim lib femm codec.
 ## Package Metadata
 
 - Manifest: `crates/sim-lib-femm-codec/Cargo.toml`
-- Publish: `false`
+- Publish: `true`
 - Targets: `lib`
 
 ## Crate Documentation
 
-SIM workspace package for sim lib femm codec.
+Codec surface for FEMM model, solution, and field descriptors.

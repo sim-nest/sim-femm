@@ -7,9 +7,9 @@ SIM workspace package for sim lib femm core.
 ## Package Metadata
 
 - Manifest: `crates/sim-lib-femm-core/Cargo.toml`
-- Publish: `false`
+- Publish: `true`
 - Targets: `lib`
 
 ## Crate Documentation
 
-SIM workspace package for sim lib femm core.
+Shared FEMM substrate: core types, stable ids, errors, and domain vocabulary.

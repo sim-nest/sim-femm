@@ -7,9 +7,9 @@ SIM workspace package for sim lib femm post.
 ## Package Metadata
 
 - Manifest: `crates/sim-lib-femm-post/Cargo.toml`
-- Publish: `false`
+- Publish: `true`
 - Targets: `lib`
 
 ## Crate Documentation
 
-SIM workspace package for sim lib femm post.
+Post-processing of FEMM solutions into derived quantities.

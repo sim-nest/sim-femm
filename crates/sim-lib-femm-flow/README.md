@@ -7,9 +7,9 @@ SIM workspace package for sim lib femm flow.
 ## Package Metadata
 
 - Manifest: `crates/sim-lib-femm-flow/Cargo.toml`
-- Publish: `false`
+- Publish: `true`
 - Targets: `lib`
 
 ## Crate Documentation
 
-SIM workspace package for sim lib femm flow.
+Nonlinear solve flow: pseudo-transient continuation and solve diagnostics.

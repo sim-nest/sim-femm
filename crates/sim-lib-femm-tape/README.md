@@ -7,9 +7,9 @@ SIM workspace package for sim lib femm tape.
 ## Package Metadata
 
 - Manifest: `crates/sim-lib-femm-tape/Cargo.toml`
-- Publish: `false`
+- Publish: `true`
 - Targets: `lib`
 
 ## Crate Documentation
 
-SIM workspace package for sim lib femm tape.
+Solve tape: cached factorizations and solutions keyed by fingerprint.

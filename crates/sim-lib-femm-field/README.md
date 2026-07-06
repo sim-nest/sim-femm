@@ -7,9 +7,9 @@ SIM workspace package for sim lib femm field.
 ## Package Metadata
 
 - Manifest: `crates/sim-lib-femm-field/Cargo.toml`
-- Publish: `false`
+- Publish: `true`
 - Targets: `lib`
 
 ## Crate Documentation
 
-SIM workspace package for sim lib femm field.
+Field representations and projections over FEMM solutions.

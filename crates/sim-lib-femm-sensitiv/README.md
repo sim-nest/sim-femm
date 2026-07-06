@@ -7,9 +7,9 @@ SIM workspace package for sim lib femm sensitiv.
 ## Package Metadata
 
 - Manifest: `crates/sim-lib-femm-sensitiv/Cargo.toml`
-- Publish: `false`
+- Publish: `true`
 - Targets: `lib`
 
 ## Crate Documentation
 
-SIM workspace package for sim lib femm sensitiv.
+Sensitivity and adjoint analysis of FEMM quantities.

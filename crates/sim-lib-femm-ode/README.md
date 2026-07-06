@@ -7,9 +7,9 @@ SIM workspace package for sim lib femm ode.
 ## Package Metadata
 
 - Manifest: `crates/sim-lib-femm-ode/Cargo.toml`
-- Publish: `false`
+- Publish: `true`
 - Targets: `lib`
 
 ## Crate Documentation
 
-SIM workspace package for sim lib femm ode.
+Time integration of FEMM models as ODE/DAE systems.

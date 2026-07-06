@@ -7,9 +7,9 @@ SIM workspace package for sim lib femm assembly.
 ## Package Metadata
 
 - Manifest: `crates/sim-lib-femm-assembly/Cargo.toml`
-- Publish: `false`
+- Publish: `true`
 - Targets: `lib`
 
 ## Crate Documentation
 
-SIM workspace package for sim lib femm assembly.
+Finite-element system assembly for the FEMM domain.

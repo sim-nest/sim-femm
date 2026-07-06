@@ -7,9 +7,9 @@ SIM workspace package for sim lib femm prelude.
 ## Package Metadata
 
 - Manifest: `crates/sim-lib-femm-prelude/Cargo.toml`
-- Publish: `false`
+- Publish: `true`
 - Targets: `lib`
 
 ## Crate Documentation
 
-SIM workspace package for sim lib femm prelude.
+Umbrella prelude that installs the full FEMM library stack.

@@ -7,9 +7,9 @@ SIM workspace package for sim lib femm mesh.
 ## Package Metadata
 
 - Manifest: `crates/sim-lib-femm-mesh/Cargo.toml`
-- Publish: `false`
+- Publish: `true`
 - Targets: `lib`
 
 ## Crate Documentation
 
-SIM workspace package for sim lib femm mesh.
+FEMM model definition, meshing, and model validation.

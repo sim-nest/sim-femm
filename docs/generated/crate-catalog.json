@@ -1,0 +1,234 @@
+{
+  "generator": "xtask crate-catalog v1",
+  "package_count": 19,
+  "packages": [
+    {
+      "description": "SIM workspace package for sim lib femm assembly.",
+      "generated_readme": true,
+      "manifest": "crates/sim-lib-femm-assembly/Cargo.toml",
+      "name": "sim-lib-femm-assembly",
+      "publish": "true",
+      "readme": "crates/sim-lib-femm-assembly/README.md",
+      "root": "crates/sim-lib-femm-assembly",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for sim lib femm codec.",
+      "generated_readme": true,
+      "manifest": "crates/sim-lib-femm-codec/Cargo.toml",
+      "name": "sim-lib-femm-codec",
+      "publish": "true",
+      "readme": "crates/sim-lib-femm-codec/README.md",
+      "root": "crates/sim-lib-femm-codec",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for sim lib femm core.",
+      "generated_readme": true,
+      "manifest": "crates/sim-lib-femm-core/Cargo.toml",
+      "name": "sim-lib-femm-core",
+      "publish": "true",
+      "readme": "crates/sim-lib-femm-core/README.md",
+      "root": "crates/sim-lib-femm-core",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for sim lib femm field.",
+      "generated_readme": true,
+      "manifest": "crates/sim-lib-femm-field/Cargo.toml",
+      "name": "sim-lib-femm-field",
+      "publish": "true",
+      "readme": "crates/sim-lib-femm-field/README.md",
+      "root": "crates/sim-lib-femm-field",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "Deterministic FEMM model fixtures for codec, solve, ODE, and regression tests.",
+      "generated_readme": true,
+      "manifest": "crates/sim-lib-femm-fixtures/Cargo.toml",
+      "name": "sim-lib-femm-fixtures",
+      "publish": "true",
+      "readme": "crates/sim-lib-femm-fixtures/README.md",
+      "root": "crates/sim-lib-femm-fixtures",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for sim lib femm flow.",
+      "generated_readme": true,
+      "manifest": "crates/sim-lib-femm-flow/Cargo.toml",
+      "name": "sim-lib-femm-flow",
+      "publish": "true",
+      "readme": "crates/sim-lib-femm-flow/README.md",
+      "root": "crates/sim-lib-femm-flow",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for sim lib femm function.",
+      "generated_readme": true,
+      "manifest": "crates/sim-lib-femm-function/Cargo.toml",
+      "name": "sim-lib-femm-function",
+      "publish": "true",
+      "readme": "crates/sim-lib-femm-function/README.md",
+      "root": "crates/sim-lib-femm-function",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for sim lib femm geometry.",
+      "generated_readme": true,
+      "manifest": "crates/sim-lib-femm-geometry/Cargo.toml",
+      "name": "sim-lib-femm-geometry",
+      "publish": "true",
+      "readme": "crates/sim-lib-femm-geometry/README.md",
+      "root": "crates/sim-lib-femm-geometry",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for sim lib femm material.",
+      "generated_readme": true,
+      "manifest": "crates/sim-lib-femm-material/Cargo.toml",
+      "name": "sim-lib-femm-material",
+      "publish": "true",
+      "readme": "crates/sim-lib-femm-material/README.md",
+      "root": "crates/sim-lib-femm-material",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for sim lib femm mesh.",
+      "generated_readme": true,
+      "manifest": "crates/sim-lib-femm-mesh/Cargo.toml",
+      "name": "sim-lib-femm-mesh",
+      "publish": "true",
+      "readme": "crates/sim-lib-femm-mesh/README.md",
+      "root": "crates/sim-lib-femm-mesh",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for sim lib femm ode.",
+      "generated_readme": true,
+      "manifest": "crates/sim-lib-femm-ode/Cargo.toml",
+      "name": "sim-lib-femm-ode",
+      "publish": "true",
+      "readme": "crates/sim-lib-femm-ode/README.md",
+      "root": "crates/sim-lib-femm-ode",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for sim lib femm physics.",
+      "generated_readme": true,
+      "manifest": "crates/sim-lib-femm-physics/Cargo.toml",
+      "name": "sim-lib-femm-physics",
+      "publish": "true",
+      "readme": "crates/sim-lib-femm-physics/README.md",
+      "root": "crates/sim-lib-femm-physics",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for sim lib femm post.",
+      "generated_readme": true,
+      "manifest": "crates/sim-lib-femm-post/Cargo.toml",
+      "name": "sim-lib-femm-post",
+      "publish": "true",
+      "readme": "crates/sim-lib-femm-post/README.md",
+      "root": "crates/sim-lib-femm-post",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for sim lib femm prelude.",
+      "generated_readme": true,
+      "manifest": "crates/sim-lib-femm-prelude/Cargo.toml",
+      "name": "sim-lib-femm-prelude",
+      "publish": "true",
+      "readme": "crates/sim-lib-femm-prelude/README.md",
+      "root": "crates/sim-lib-femm-prelude",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for sim lib femm sensitiv.",
+      "generated_readme": true,
+      "manifest": "crates/sim-lib-femm-sensitiv/Cargo.toml",
+      "name": "sim-lib-femm-sensitiv",
+      "publish": "true",
+      "readme": "crates/sim-lib-femm-sensitiv/README.md",
+      "root": "crates/sim-lib-femm-sensitiv",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for sim lib femm solve.",
+      "generated_readme": true,
+      "manifest": "crates/sim-lib-femm-solve/Cargo.toml",
+      "name": "sim-lib-femm-solve",
+      "publish": "true",
+      "readme": "crates/sim-lib-femm-solve/README.md",
+      "root": "crates/sim-lib-femm-solve",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for sim lib femm space.",
+      "generated_readme": true,
+      "manifest": "crates/sim-lib-femm-space/Cargo.toml",
+      "name": "sim-lib-femm-space",
+      "publish": "true",
+      "readme": "crates/sim-lib-femm-space/README.md",
+      "root": "crates/sim-lib-femm-space",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for sim lib femm tape.",
+      "generated_readme": true,
+      "manifest": "crates/sim-lib-femm-tape/Cargo.toml",
+      "name": "sim-lib-femm-tape",
+      "publish": "true",
+      "readme": "crates/sim-lib-femm-tape/README.md",
+      "root": "crates/sim-lib-femm-tape",
+      "target_kinds": [
+        "lib"
+      ]
+    },
+    {
+      "description": "SIM workspace package for xtask.",
+      "generated_readme": true,
+      "manifest": "xtask/Cargo.toml",
+      "name": "xtask",
+      "publish": "false",
+      "readme": "xtask/README.md",
+      "root": "xtask",
+      "target_kinds": [
+        "bin"
+      ]
+    }
+  ]
+}

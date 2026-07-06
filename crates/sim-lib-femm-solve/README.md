@@ -7,9 +7,9 @@ SIM workspace package for sim lib femm solve.
 ## Package Metadata
 
 - Manifest: `crates/sim-lib-femm-solve/Cargo.toml`
-- Publish: `false`
+- Publish: `true`
 - Targets: `lib`
 
 ## Crate Documentation
 
-SIM workspace package for sim lib femm solve.
+Linear solvers and the steady-state FEMM solve pipeline.

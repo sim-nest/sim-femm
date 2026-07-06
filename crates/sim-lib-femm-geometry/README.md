@@ -7,9 +7,9 @@ SIM workspace package for sim lib femm geometry.
 ## Package Metadata
 
 - Manifest: `crates/sim-lib-femm-geometry/Cargo.toml`
-- Publish: `false`
+- Publish: `true`
 - Targets: `lib`
 
 ## Crate Documentation
 
-SIM workspace package for sim lib femm geometry.
+Two-dimensional FEMM geometry: nodes, segments, arcs, regions, and labels.
