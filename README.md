@@ -1,5 +1,62 @@
 # sim-femm
 
+Draw a 2D field problem -- magnetics, electrostatics, heat, or current -- attach
+its materials and boundary conditions, and get back a solved answer that carries
+its own checkable convergence certificate.
+
+sim-femm is a set of loadable **libraries** for the SIM runtime, not a
+standalone binary. You add the crates you need, install them into a runtime
+context, and build models from geometry through solve to derived quantities. SIM
+itself ships as the `sim` CLI (`cargo install sim-run`); the full walkthrough
+lives in sim-say.
+
+## Examples
+
+Install the whole FEMM stack into a fresh runtime context and confirm the
+libraries and their functions registered:
+
+```bash
+cargo add sim-lib-femm-prelude sim-kernel
+```
+
+```rust
+use std::sync::Arc;
+use sim_kernel::{Cx, DefaultFactory, EagerPolicy, Symbol};
+use sim_lib_femm_prelude::FemmPreludeLib;
+
+let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+FemmPreludeLib::new().install_all(&mut cx).unwrap();
+
+// The FEMM libraries are now loaded and their functions callable.
+assert!(cx.registry().lib(&Symbol::qualified("femm", "core")).is_some());
+assert!(
+    cx.registry()
+        .function_by_symbol(&Symbol::qualified("femm", "as-ode-rhs"))
+        .is_some()
+);
+```
+
+(from `sim-lib-femm-prelude` `src/lib.rs:29`, a passing doctest)
+
+Or start from a canonical, ready-made model -- one of the built-in fixtures with
+an analytically known reference:
+
+```bash
+cargo add sim-lib-femm-fixtures
+```
+
+```rust
+use sim_lib_femm_fixtures::parallel_plate_capacitor;
+
+let model = parallel_plate_capacitor();
+assert_eq!(model.name.as_qualified_str(), "parallel-plate-capacitor");
+assert_eq!(model.inputs.len(), 1);
+```
+
+(from `sim-lib-femm-fixtures` `src/lib.rs:79`, a passing doctest)
+
+## How it works
+
 sim-femm is the finite-element domain (FEMM) of the SIM constellation. It loads
 a stack of libraries that describe, mesh, assemble, solve, and post-process 2D
 finite-element field problems across the magnetostatic, harmonic, electrostatic,
