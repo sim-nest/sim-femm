@@ -4,5 +4,5 @@ codec = "lisp"
 setup = "setup.siml"
 purpose = "purpose.md"
 order = 10
-tags = ["femm", "fixtures", "electrostatic"]
+tags = ["femm", "fixtures", "electrostatic", "sandbox-descriptor"]
 requires = ["femm-fixtures", "codec/lisp"]

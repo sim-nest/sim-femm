@@ -4,5 +4,5 @@ codec = "lisp"
 setup = "setup.siml"
 purpose = "purpose.md"
 order = 10
-tags = ["femm", "tape", "artifact"]
+tags = ["femm", "tape", "artifact", "sandbox-descriptor"]
 requires = ["femm-tape", "codec/lisp"]

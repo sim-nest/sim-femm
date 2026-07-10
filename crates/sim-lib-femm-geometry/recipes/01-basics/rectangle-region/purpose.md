@@ -1,4 +1,5 @@
-# Rectangle region descriptor
+# Rectangle Region (descriptor)
 
-This recipe keeps geometry as a small descriptor plus an artifact reference
-instead of embedding a large generated mesh.
+Documents a rectangular geometry region in the finite-element-method (FEM) domain. The femm classes are not loaded in
+the cookbook sandbox eval stack, and solving a FEM model is iterative linear algebra outside it,
+so the form is documented rather than constructed or solved live.

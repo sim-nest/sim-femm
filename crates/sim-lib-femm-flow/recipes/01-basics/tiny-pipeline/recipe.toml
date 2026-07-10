@@ -4,5 +4,5 @@ codec = "lisp"
 setup = "setup.siml"
 purpose = "purpose.md"
 order = 10
-tags = ["femm", "flow", "pipeline"]
+tags = ["femm", "flow", "pipeline", "sandbox-descriptor"]
 requires = ["femm-flow", "codec/lisp"]

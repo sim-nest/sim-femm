@@ -1,4 +1,5 @@
-# Direct gap sensitivity
+# Direct Gap (descriptor)
 
-This recipe names a deterministic sensitivity path and the design variable it
-differentiates with respect to.
+Documents a direct-exact sensitivity (gradient) analysis in the finite-element-method (FEM) domain. The femm classes are not loaded in
+the cookbook sandbox eval stack, and solving a FEM model is iterative linear algebra outside it,
+so the form is documented rather than constructed or solved live.

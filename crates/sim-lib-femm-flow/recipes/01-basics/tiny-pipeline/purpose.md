@@ -1,4 +1,5 @@
-# Tiny FEMM pipeline
+# Tiny Pipeline (descriptor)
 
-This recipe shows the FEMM flow as an ordered descriptor pipeline without
-starting a heavy external solver.
+Documents the model->mesh->assemble->solve->post pipeline in the finite-element-method (FEM) domain. The femm classes are not loaded in
+the cookbook sandbox eval stack, and solving a FEM model is iterative linear algebra outside it,
+so the form is documented rather than constructed or solved live.

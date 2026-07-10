@@ -1,4 +1,5 @@
-# Potential field descriptor
+# Potential Field (descriptor)
 
-This recipe uses the field constructor form for a potential projection from a
-stable solution id.
+Documents a potential field and its projection in the finite-element-method (FEM) domain. The femm classes are not loaded in
+the cookbook sandbox eval stack, and solving a FEM model is iterative linear algebra outside it,
+so the form is documented rather than constructed or solved live.

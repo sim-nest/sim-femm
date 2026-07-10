@@ -4,5 +4,5 @@ codec = "lisp"
 setup = "setup.siml"
 purpose = "purpose.md"
 order = 10
-tags = ["femm", "field", "projection"]
+tags = ["femm", "field", "projection", "sandbox-descriptor"]
 requires = ["femm-field", "codec/lisp"]

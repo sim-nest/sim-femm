@@ -1,4 +1,5 @@
-# Electrostatic planar physics
+# Electrostatic Planar (descriptor)
 
-This recipe records a physics/formulation pair that downstream assembly and
-solve examples can share.
+Documents the planar electrostatic physics in the finite-element-method (FEM) domain. The femm classes are not loaded in
+the cookbook sandbox eval stack, and solving a FEM model is iterative linear algebra outside it,
+so the form is documented rather than constructed or solved live.
