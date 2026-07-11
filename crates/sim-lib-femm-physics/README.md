@@ -8,7 +8,7 @@ SIM workspace package for sim lib femm physics.
 
 - Manifest: `crates/sim-lib-femm-physics/Cargo.toml`
 - Publish: `true`
-- Targets: `lib`
+- Targets: `custom-build, lib`
 
 ## Crate Documentation
 

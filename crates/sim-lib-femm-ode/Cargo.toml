@@ -1,6 +1,6 @@
 [package]
 name = "sim-lib-femm-ode"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 license = "MPL-2.0"
 description = "SIM workspace package for sim lib femm ode."
@@ -10,6 +10,7 @@ repository = "https://github.com/sim-nest/sim-femm"
 homepage = "https://github.com/sim-nest/sim-femm"
 
 [dependencies]
+sim-cookbook = { version = "0.1.0" }
 sim-kernel = { version = "0.1.0" }
 sim-value = { version = "0.1.0" }
 sim-lib-femm-core = { version = "0.1.0", path = "../sim-lib-femm-core" }
@@ -23,3 +24,6 @@ sim-lib-numbers-func = { version = "0.1.0" }
 
 [dev-dependencies]
 sim-lib-femm-fixtures = { version = "0.1.0", path = "../sim-lib-femm-fixtures" }
+
+[build-dependencies]
+sim-cookbook = { version = "0.1.0" }

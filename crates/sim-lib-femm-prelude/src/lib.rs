@@ -81,5 +81,9 @@ fn install_if_missing(cx: &mut Cx, symbol: Symbol, lib: &dyn Lib) -> Result<()> 
     Ok(())
 }
 
+/// Cookbook recipes for this lib, embedded at build time.
+pub static RECIPES: sim_cookbook::EmbeddedDir =
+    include!(concat!(env!("OUT_DIR"), "/cookbook_recipes.rs"));
+
 #[cfg(test)]
 mod tests;

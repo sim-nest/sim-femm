@@ -8,7 +8,7 @@ SIM workspace package for sim lib femm function.
 
 - Manifest: `crates/sim-lib-femm-function/Cargo.toml`
 - Publish: `true`
-- Targets: `lib`
+- Targets: `custom-build, lib`
 
 ## Crate Documentation
 
