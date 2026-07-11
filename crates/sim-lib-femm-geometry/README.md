@@ -8,7 +8,7 @@ SIM workspace package for sim lib femm geometry.
 
 - Manifest: `crates/sim-lib-femm-geometry/Cargo.toml`
 - Publish: `true`
-- Targets: `lib`
+- Targets: `custom-build, lib`
 
 ## Crate Documentation
 

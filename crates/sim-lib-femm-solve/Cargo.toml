@@ -1,6 +1,6 @@
 [package]
 name = "sim-lib-femm-solve"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 license = "MPL-2.0"
 description = "SIM workspace package for sim lib femm solve."
@@ -10,6 +10,7 @@ repository = "https://github.com/sim-nest/sim-femm"
 homepage = "https://github.com/sim-nest/sim-femm"
 
 [dependencies]
+sim-cookbook = { version = "0.1.0" }
 sim-kernel = { version = "0.1.0" }
 sim-value = { version = "0.1.0" }
 sim-lib-femm-assembly = { version = "0.1.0", path = "../sim-lib-femm-assembly" }
@@ -22,3 +23,6 @@ sim-lib-femm-physics = { version = "0.1.0", path = "../sim-lib-femm-physics" }
 sim-lib-femm-post = { version = "0.1.0", path = "../sim-lib-femm-post" }
 sim-lib-femm-space = { version = "0.1.0", path = "../sim-lib-femm-space" }
 sim-lib-numbers-ad = { version = "0.1.0" }
+
+[build-dependencies]
+sim-cookbook = { version = "0.1.0" }

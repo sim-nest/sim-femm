@@ -1,6 +1,6 @@
 [package]
 name = "sim-lib-femm-post"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 license = "MPL-2.0"
 description = "SIM workspace package for sim lib femm post."
@@ -10,9 +10,13 @@ repository = "https://github.com/sim-nest/sim-femm"
 homepage = "https://github.com/sim-nest/sim-femm"
 
 [dependencies]
+sim-cookbook = { version = "0.1.0" }
 sim-citizen = { version = "0.1.0" }
 sim-kernel = { version = "0.1.0" }
 sim-lib-femm-core = { version = "0.1.0", path = "../sim-lib-femm-core" }
 sim-lib-femm-flow = { version = "0.1.0", path = "../sim-lib-femm-flow" }
 sim-lib-femm-mesh = { version = "0.1.0", path = "../sim-lib-femm-mesh" }
 sim-lib-femm-space = { version = "0.1.0", path = "../sim-lib-femm-space" }
+
+[build-dependencies]
+sim-cookbook = { version = "0.1.0" }

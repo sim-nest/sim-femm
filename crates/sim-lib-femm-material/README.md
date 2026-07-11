@@ -8,7 +8,7 @@ SIM workspace package for sim lib femm material.
 
 - Manifest: `crates/sim-lib-femm-material/Cargo.toml`
 - Publish: `true`
-- Targets: `lib`
+- Targets: `custom-build, lib`
 
 ## Crate Documentation
 

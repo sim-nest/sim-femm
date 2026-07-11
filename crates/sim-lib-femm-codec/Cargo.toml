@@ -1,6 +1,6 @@
 [package]
 name = "sim-lib-femm-codec"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 license = "MPL-2.0"
 description = "SIM workspace package for sim lib femm codec."
@@ -10,6 +10,7 @@ repository = "https://github.com/sim-nest/sim-femm"
 homepage = "https://github.com/sim-nest/sim-femm"
 
 [dependencies]
+sim-cookbook = { version = "0.1.0" }
 sim-citizen = { version = "0.1.0" }
 sim-citizen-derive = { version = "0.1.0" }
 sim-kernel = { version = "0.1.0" }
@@ -31,3 +32,6 @@ sim-codec-json = { version = "0.1.0" }
 sim-codec-lisp = { version = "0.1.0" }
 sim-lib-femm-material = { version = "0.1.0", path = "../sim-lib-femm-material" }
 sim-lib-femm-solve = { version = "0.1.0", path = "../sim-lib-femm-solve" }
+
+[build-dependencies]
+sim-cookbook = { version = "0.1.0" }

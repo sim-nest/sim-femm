@@ -8,7 +8,7 @@ SIM workspace package for sim lib femm sensitiv.
 
 - Manifest: `crates/sim-lib-femm-sensitiv/Cargo.toml`
 - Publish: `true`
-- Targets: `lib`
+- Targets: `custom-build, lib`
 
 ## Crate Documentation
 

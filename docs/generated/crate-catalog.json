@@ -11,6 +11,7 @@
       "readme": "crates/sim-lib-femm-assembly/README.md",
       "root": "crates/sim-lib-femm-assembly",
       "target_kinds": [
+        "custom-build",
         "lib"
       ]
     },
@@ -23,6 +24,7 @@
       "readme": "crates/sim-lib-femm-codec/README.md",
       "root": "crates/sim-lib-femm-codec",
       "target_kinds": [
+        "custom-build",
         "lib"
       ]
     },
@@ -35,6 +37,7 @@
       "readme": "crates/sim-lib-femm-core/README.md",
       "root": "crates/sim-lib-femm-core",
       "target_kinds": [
+        "custom-build",
         "lib"
       ]
     },
@@ -47,6 +50,7 @@
       "readme": "crates/sim-lib-femm-field/README.md",
       "root": "crates/sim-lib-femm-field",
       "target_kinds": [
+        "custom-build",
         "lib"
       ]
     },
@@ -59,6 +63,7 @@
       "readme": "crates/sim-lib-femm-fixtures/README.md",
       "root": "crates/sim-lib-femm-fixtures",
       "target_kinds": [
+        "custom-build",
         "lib"
       ]
     },
@@ -71,6 +76,7 @@
       "readme": "crates/sim-lib-femm-flow/README.md",
       "root": "crates/sim-lib-femm-flow",
       "target_kinds": [
+        "custom-build",
         "lib"
       ]
     },
@@ -83,6 +89,7 @@
       "readme": "crates/sim-lib-femm-function/README.md",
       "root": "crates/sim-lib-femm-function",
       "target_kinds": [
+        "custom-build",
         "lib"
       ]
     },
@@ -95,6 +102,7 @@
       "readme": "crates/sim-lib-femm-geometry/README.md",
       "root": "crates/sim-lib-femm-geometry",
       "target_kinds": [
+        "custom-build",
         "lib"
       ]
     },
@@ -107,6 +115,7 @@
       "readme": "crates/sim-lib-femm-material/README.md",
       "root": "crates/sim-lib-femm-material",
       "target_kinds": [
+        "custom-build",
         "lib"
       ]
     },
@@ -119,6 +128,7 @@
       "readme": "crates/sim-lib-femm-mesh/README.md",
       "root": "crates/sim-lib-femm-mesh",
       "target_kinds": [
+        "custom-build",
         "lib"
       ]
     },
@@ -131,6 +141,7 @@
       "readme": "crates/sim-lib-femm-ode/README.md",
       "root": "crates/sim-lib-femm-ode",
       "target_kinds": [
+        "custom-build",
         "lib"
       ]
     },
@@ -143,6 +154,7 @@
       "readme": "crates/sim-lib-femm-physics/README.md",
       "root": "crates/sim-lib-femm-physics",
       "target_kinds": [
+        "custom-build",
         "lib"
       ]
     },
@@ -155,6 +167,7 @@
       "readme": "crates/sim-lib-femm-post/README.md",
       "root": "crates/sim-lib-femm-post",
       "target_kinds": [
+        "custom-build",
         "lib"
       ]
     },
@@ -167,6 +180,7 @@
       "readme": "crates/sim-lib-femm-prelude/README.md",
       "root": "crates/sim-lib-femm-prelude",
       "target_kinds": [
+        "custom-build",
         "lib"
       ]
     },
@@ -179,6 +193,7 @@
       "readme": "crates/sim-lib-femm-sensitiv/README.md",
       "root": "crates/sim-lib-femm-sensitiv",
       "target_kinds": [
+        "custom-build",
         "lib"
       ]
     },
@@ -191,6 +206,7 @@
       "readme": "crates/sim-lib-femm-solve/README.md",
       "root": "crates/sim-lib-femm-solve",
       "target_kinds": [
+        "custom-build",
         "lib"
       ]
     },
@@ -203,6 +219,7 @@
       "readme": "crates/sim-lib-femm-space/README.md",
       "root": "crates/sim-lib-femm-space",
       "target_kinds": [
+        "custom-build",
         "lib"
       ]
     },
@@ -215,6 +232,7 @@
       "readme": "crates/sim-lib-femm-tape/README.md",
       "root": "crates/sim-lib-femm-tape",
       "target_kinds": [
+        "custom-build",
         "lib"
       ]
     },
