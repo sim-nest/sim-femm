@@ -10,8 +10,8 @@ use sim_kernel::{
     ClassId, ClassRef, Cx, DefaultFactory, Expr, Factory, Object, ObjectEncode, ObjectEncoding,
     Result as KernelResult, Symbol, Value,
 };
-use sim_lib_femm_core::{FemmError, FemmLimits, FemmResult, ParamSet, StableId, value_as_f64};
-use sim_lib_femm_field::{Field, Projection, field_as_func};
+use sim_lib_femm_core::{FemmError, FemmLimits, FemmResult, ParamSet, value_as_f64};
+use sim_lib_femm_field::{Field, Projection};
 use sim_lib_femm_material::{BoundaryKind, Source};
 use sim_lib_femm_mesh::FemmModel;
 use sim_lib_femm_post::{Excitation, FemmSolution, QuantitySpec, quantity};
@@ -493,33 +493,32 @@ pub fn femm_as_func(model: FemmModel, vars: Vec<Symbol>, query: OutputQuery) -> 
 
 /// Wraps a model's potential field as a sim-numbers [`Func`] over position.
 ///
-/// Builds a trivial single-element solution for `model` and exposes its
-/// potential projection as a spatial function, used where a model is consumed
-/// as a field-valued function rather than a parameter-to-scalar map.
+/// The returned function solves `model` with its default parameters and samples
+/// the solved potential field at `(x, y)`. Mesh or solve failures propagate
+/// through the callable boundary; this path never fabricates a replacement
+/// solution.
 pub fn femm_field_func(model: FemmModel) -> Func {
-    let field = Arc::new(FemmSolution {
-        id: StableId(model.id.0 + 1),
-        model_id: model.id,
-        physics: model.physics.clone(),
-        formulation: model.formulation.clone(),
-        params: ParamSet::default(),
-        mesh: sim_lib_femm_mesh::FemMesh2 {
-            xy: vec![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
-            tri: vec![[0, 1, 2]],
-            elem_region: vec![Symbol::new("air")],
-            edge_boundary: Vec::new(),
-        },
-        u: vec![0.0, 1.0, 1.0],
-        diagnostics: sim_lib_femm_flow::SolveDiagnostics {
-            method: Symbol::new("femm-ptc"),
-            converged: true,
-            iterations: 1,
-            final_residual: 0.0,
-            events: Vec::new(),
-            diagnostics: Vec::new(),
-        },
-    });
-    field_as_func(Field::new(field, Projection::Potential))
+    Func::native(
+        vec![Symbol::new("x"), Symbol::new("y")],
+        Arc::new(move |cx, args| {
+            let x = value_as_f64(cx, &args[0]).map_err(sim_kernel::Error::from)?;
+            let y = value_as_f64(cx, &args[1]).map_err(sim_kernel::Error::from)?;
+            let solution = solve_steady(
+                cx,
+                &model,
+                &ParamSet::default(),
+                &FemmLimits::default(),
+                None,
+            )
+            .map_err(sim_kernel::Error::from)?
+            .solution;
+            let field = Field::new(solution, Projection::Potential);
+            cx.factory().number_literal(
+                Symbol::qualified("numbers", "f64"),
+                field.at(x, y).map_err(sim_kernel::Error::from)?.to_string(),
+            )
+        }),
+    )
 }
 
 pub(crate) fn describe_query(query: &OutputQuery) -> String {

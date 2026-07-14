@@ -9,9 +9,8 @@ use std::{
     sync::Arc,
 };
 
-use sim_kernel::{Cx, Symbol};
+use sim_kernel::Cx;
 use sim_lib_femm_core::{FemmLimits, FemmResult, ParamSet, StableId};
-use sim_lib_femm_flow::SolveDiagnostics;
 use sim_lib_femm_mesh::{FemMesh2, FemmModel, Mesher};
 use sim_lib_femm_post::FemmSolution;
 use sim_lib_femm_solve::{FactorHandle, solve_steady};
@@ -146,7 +145,8 @@ impl SolveTape {
     /// Meshes the model, looks up the [`SolveKey`], and returns any stored
     /// solution; otherwise it runs the steady solve (reusing a cached mesh
     /// factorization when present), records both, and returns the result.
-    /// Geometry that fails to mesh or solve falls back to a trivial solution.
+    /// Geometry and solve failures are returned to the caller; production paths
+    /// never synthesize a converged replacement solution.
     pub fn solve(
         &mut self,
         cx: &mut Cx,
@@ -154,71 +154,54 @@ impl SolveTape {
         params: &ParamSet,
         limits: &FemmLimits,
     ) -> FemmResult<Arc<FemmSolution>> {
-        let predicted = match sim_lib_femm_mesh::DeterministicMesher::new().mesh(cx, model, params)
-        {
-            Ok(predicted) => predicted,
-            Err(sim_lib_femm_core::FemmError::InvalidGeometry(_)) => {
-                return Ok(fallback_solution(cx, model, params));
-            }
-            Err(err) => return Err(err),
-        };
+        let predicted = sim_lib_femm_mesh::DeterministicMesher::new().mesh(cx, model, params)?;
         let key = Self::solve_key(model, &predicted.mesh, params.fingerprint(cx));
         if let Some(solution) = self.solution(&key) {
             return Ok(solution);
         }
         let factor = self.factors.get(&key.mesh_fingerprint).cloned();
-        let out = match solve_steady(cx, model, params, limits, factor.as_ref()) {
-            Ok(out) => out,
-            Err(sim_lib_femm_core::FemmError::InvalidGeometry(_)) => {
-                return Ok(fallback_solution(cx, model, params));
-            }
-            Err(err) => return Err(err),
-        };
+        let out = solve_steady(cx, model, params, limits, factor.as_ref())?;
         self.store_factor(key.mesh_fingerprint, out.factor.clone());
         self.store_solution_for_key(&key, out.solution.clone());
         Ok(out.solution)
     }
 }
 
-fn fallback_solution(cx: &mut Cx, model: &FemmModel, params: &ParamSet) -> Arc<FemmSolution> {
-    let bias = params
-        .entries
-        .iter()
-        .map(|(_, value)| sim_lib_femm_core::value_as_f64(cx, value).unwrap_or(0.0))
-        .sum::<f64>();
-    Arc::new(FemmSolution {
-        id: StableId(model.id.0 ^ params.fingerprint(cx).0),
-        model_id: model.id,
-        physics: model.physics.clone(),
-        formulation: model.formulation.clone(),
-        params: params.clone(),
-        mesh: FemMesh2 {
-            xy: vec![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
-            tri: vec![[0, 1, 2]],
-            elem_region: vec![Symbol::new("air")],
-            edge_boundary: Vec::new(),
-        },
-        u: vec![bias, 1.0 + bias, 1.0 + bias],
-        diagnostics: SolveDiagnostics {
-            method: Symbol::new("femm-ptc"),
-            converged: true,
-            iterations: 1,
-            final_residual: 0.0,
-            events: Vec::new(),
-            diagnostics: Vec::new(),
-        },
-    })
-}
-
 #[cfg(test)]
 mod tests {
-    use sim_kernel::Symbol;
-    use sim_lib_femm_core::{Formulation, LengthUnit, PhysicsKind, StableId};
+    use sim_kernel::{DefaultFactory, EagerPolicy, Expr, NumberLiteral, Symbol};
+    use sim_lib_femm_core::{FemmError, Formulation, LengthUnit, PhysicsKind, StableId};
     use sim_lib_femm_flow::SolveDiagnostics;
+    use sim_lib_femm_geometry::AnalyticRegion2;
+    use sim_lib_femm_material::Material;
     use sim_lib_femm_mesh::{FemMesh2, FemmModel};
     use sim_lib_femm_post::FemmSolution;
 
     use super::*;
+
+    fn test_cx() -> Cx {
+        Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory))
+    }
+
+    fn num(text: &str) -> Expr {
+        Expr::Number(NumberLiteral {
+            domain: Symbol::qualified("numbers", "f64"),
+            canonical: text.to_owned(),
+        })
+    }
+
+    fn air_material() -> Material {
+        Material {
+            name: Symbol::new("air"),
+            mu_r: Some(num("1.0")),
+            nu_of_b2: None,
+            epsilon_r: Some(num("1.0")),
+            sigma: None,
+            thermal_k: None,
+            heat_source: None,
+            remanence: None,
+        }
+    }
 
     fn model(name: &str) -> FemmModel {
         FemmModel {
@@ -243,6 +226,18 @@ mod tests {
             solve_policy: None,
             origin: sim_lib_femm_geometry::dummy_origin(),
         }
+    }
+
+    fn unmeshable_model() -> FemmModel {
+        let mut model = model("unmeshable");
+        model.formulation = Formulation::Axisymmetric;
+        model.materials = vec![air_material()];
+        model.geometry.analytic = vec![AnalyticRegion2::Rect {
+            name: Symbol::new("air"),
+            xy: [num("-1.0"), num("0.0")],
+            wh: [num("1.0"), num("1.0")],
+        }];
+        model
     }
 
     #[test]
@@ -300,5 +295,22 @@ mod tests {
         let right = SolveTape::solve_key(&model("m"), &mesh, StableId(2));
         assert_eq!(left.mesh_fingerprint, right.mesh_fingerprint);
         assert_ne!(left.param_fingerprint, right.param_fingerprint);
+    }
+
+    #[test]
+    fn unmeshable_model_errors_not_fake_converged() {
+        let mut cx = test_cx();
+        let mut tape = SolveTape::default();
+        let err = tape
+            .solve(
+                &mut cx,
+                &unmeshable_model(),
+                &ParamSet::default(),
+                &FemmLimits::default(),
+            )
+            .unwrap_err();
+
+        assert!(matches!(err, FemmError::InvalidGeometry(_)));
+        assert!(tape.solutions.is_empty());
     }
 }

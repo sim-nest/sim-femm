@@ -6,13 +6,15 @@ use sim_lib_femm_core::{
 };
 use sim_lib_femm_field::{Field, Projection};
 use sim_lib_femm_fixtures::parallel_plate_capacitor;
-use sim_lib_femm_geometry::{Geometry2, dummy_origin};
+use sim_lib_femm_geometry::{AnalyticRegion2, Geometry2, dummy_origin};
 use sim_lib_femm_material::MeshPolicy;
 use sim_lib_femm_mesh::FemmModel;
 use sim_lib_femm_post::QuantitySpec;
 use sim_lib_femm_solve::{GradientTrust, SolveExportRecord, certificate_claim, solve_steady};
 
-use crate::{FemmCall, FemmCallable, ModelCallable, OutputQuery, femm_as_func, quality};
+use crate::{
+    FemmCall, FemmCallable, ModelCallable, OutputQuery, femm_as_func, femm_field_func, quality,
+};
 
 fn num(text: &str) -> Expr {
     sim_value::build::num_q(Some("numbers"), "f64", text)
@@ -46,6 +48,17 @@ fn model() -> FemmModel {
         solve_policy: None,
         origin: dummy_origin(),
     }
+}
+
+fn unmeshable_model() -> FemmModel {
+    let mut model = parallel_plate_capacitor();
+    model.formulation = Formulation::Axisymmetric;
+    model.geometry.analytic = vec![AnalyticRegion2::Rect {
+        name: Symbol::new("air"),
+        xy: [num("-1.0"), num("0.0")],
+        wh: [num("1.0"), num("1.0")],
+    }];
+    model
 }
 
 #[test]
@@ -143,6 +156,34 @@ fn projected_field_returns_field_domain() {
         field.number_domain(&mut cx).unwrap(),
         sim_kernel::Symbol::qualified("numbers", "field")
     );
+}
+
+#[test]
+fn field_func_requires_real_solution() {
+    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let func = femm_field_func(unmeshable_model());
+    let x = cx
+        .factory()
+        .number_literal(
+            sim_kernel::Symbol::qualified("numbers", "f64"),
+            "0.25".to_owned(),
+        )
+        .unwrap();
+    let y = cx
+        .factory()
+        .number_literal(
+            sim_kernel::Symbol::qualified("numbers", "f64"),
+            "0.25".to_owned(),
+        )
+        .unwrap();
+    let err = cx
+        .call_value(
+            cx.factory().opaque(Arc::new(func)).unwrap(),
+            sim_kernel::Args::new(vec![x, y]),
+        )
+        .unwrap_err();
+
+    assert!(err.to_string().contains("invalid-geometry"));
 }
 
 #[test]
