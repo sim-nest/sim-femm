@@ -76,6 +76,46 @@ fn projected_scalar_model_returns_expected_value() {
 }
 
 #[test]
+fn femm_as_func_still_callable_and_diffable() {
+    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let func = femm_as_func(
+        model(),
+        vec![sim_kernel::Symbol::new("gap-mm")],
+        OutputQuery::Quantity(QuantitySpec::Custom {
+            name: sim_kernel::Symbol::new("force"),
+            expr: num("3.5"),
+        }),
+    );
+
+    assert_eq!(
+        func.metadata.differentiator_hint,
+        Some(sim_kernel::Symbol::new("femm-adjoint"))
+    );
+    assert!(
+        func.metadata
+            .payload
+            .as_ref()
+            .and_then(|value| value.object().downcast_ref::<crate::FemmFuncPayload>())
+            .is_some()
+    );
+
+    let value = cx
+        .call_value(
+            cx.factory().opaque(Arc::new(func)).unwrap(),
+            sim_kernel::Args::new(vec![
+                cx.factory()
+                    .number_literal(
+                        sim_kernel::Symbol::qualified("numbers", "f64"),
+                        "0.4".to_owned(),
+                    )
+                    .unwrap(),
+            ]),
+        )
+        .unwrap();
+    assert_eq!(value.object().display(&mut cx).unwrap(), "3.5");
+}
+
+#[test]
 fn projected_field_returns_field_domain() {
     let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
     let gap = cx

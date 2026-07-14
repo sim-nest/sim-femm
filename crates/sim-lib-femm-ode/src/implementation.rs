@@ -19,7 +19,7 @@ use sim_lib_femm_function::ModelValue;
 use sim_lib_femm_mesh::FemmModel;
 use sim_lib_femm_post::{FemmSolution, QuantitySpec};
 use sim_lib_femm_tape::SolveTape;
-use sim_lib_numbers_func::{Func, FuncMetadata};
+use sim_lib_numbers_func::Func;
 
 /// A FEMM model cast as the right-hand side of a first-order ODE/DAE system.
 ///
@@ -122,10 +122,9 @@ impl FemmOdeRhs {
         let need = self.need.clone();
         let rhs = self.rhs.clone();
         let tape = self.tape.clone();
-        Func {
-            vars: state_vars,
-            body_cas: None,
-            body_native: Some(Arc::new(move |cx, args| {
+        Func::native(
+            state_vars,
+            Arc::new(move |cx, args| {
                 let params = sim_lib_femm_core::ParamSet::new(
                     body_vars
                         .iter()
@@ -182,9 +181,8 @@ impl FemmOdeRhs {
                         .collect::<FemmResult<Vec<_>>>()
                         .map_err(sim_kernel::Error::from)?;
                 cx.factory().list(values)
-            })),
-            metadata: FuncMetadata::default(),
-        }
+            }),
+        )
     }
 }
 
