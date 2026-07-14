@@ -453,10 +453,9 @@ pub fn femm_as_func(model: FemmModel, vars: Vec<Symbol>, query: OutputQuery) -> 
     let closure_vars = vars.clone();
     let payload_vars = closure_vars.clone();
     let closure_query = query.clone();
-    Func {
+    let mut func = Func::native(
         vars,
-        body_cas: None,
-        body_native: Some(Arc::new(move |cx, args| {
+        Arc::new(move |cx, args| {
             let params = ParamSet::new(
                 closure_vars
                     .iter()
@@ -476,19 +475,20 @@ pub fn femm_as_func(model: FemmModel, vars: Vec<Symbol>, query: OutputQuery) -> 
                 )
                 .map(|out| out.value)
                 .map_err(sim_kernel::Error::from)
-        })),
-        metadata: FuncMetadata {
-            source: Some(Symbol::qualified("femm", "model")),
-            differentiator_hint: Some(Symbol::new("femm-adjoint")),
-            payload: DefaultFactory
-                .opaque(Arc::new(FemmFuncPayload {
-                    model: model.clone(),
-                    vars: payload_vars,
-                    query: query.clone(),
-                }))
-                .ok(),
-        },
-    }
+        }),
+    );
+    func.metadata = FuncMetadata {
+        source: Some(Symbol::qualified("femm", "model")),
+        differentiator_hint: Some(Symbol::new("femm-adjoint")),
+        payload: DefaultFactory
+            .opaque(Arc::new(FemmFuncPayload {
+                model: model.clone(),
+                vars: payload_vars,
+                query: query.clone(),
+            }))
+            .ok(),
+    };
+    func
 }
 
 /// Wraps a model's potential field as a sim-numbers [`Func`] over position.

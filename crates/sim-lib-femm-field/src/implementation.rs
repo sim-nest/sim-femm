@@ -15,7 +15,7 @@ use sim_kernel::{
 use sim_lib_femm_core::{FemmResult, StableId, stable_summary};
 use sim_lib_femm_post::{FemmSolution, locate_triangle, sample_gradient, sample_potential};
 use sim_lib_numbers_core::DomainNumberValueShape;
-use sim_lib_numbers_func::{Func, FuncMetadata};
+use sim_lib_numbers_func::Func;
 use sim_shape::shape_value;
 
 /// A scalar projection of a vector or potential solution field.
@@ -204,10 +204,9 @@ impl Field {
 /// Bridges the field into the `numbers/func` domain so it can be evaluated and
 /// promoted through the kernel callable contract.
 pub fn field_as_func(field: Field) -> Func {
-    Func {
-        vars: vec![Symbol::new("x"), Symbol::new("y")],
-        body_cas: None,
-        body_native: Some(Arc::new(move |cx, args| {
+    Func::native(
+        vec![Symbol::new("x"), Symbol::new("y")],
+        Arc::new(move |cx, args| {
             let x =
                 sim_lib_femm_core::value_as_f64(cx, &args[0]).map_err(sim_kernel::Error::from)?;
             let y =
@@ -216,9 +215,8 @@ pub fn field_as_func(field: Field) -> Func {
                 Symbol::qualified("numbers", "f64"),
                 field.at(x, y).map_err(sim_kernel::Error::from)?.to_string(),
             )
-        })),
-        metadata: FuncMetadata::default(),
-    }
+        }),
+    )
 }
 
 fn field_domain_symbol() -> Symbol {
