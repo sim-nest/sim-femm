@@ -14,6 +14,7 @@
 //! `GradientTrust::FiniteDifferenceOnly`. Implemented paths do not emit
 //! `GradientTrust::AdjointUnverified`.
 
+mod expr_eval;
 mod implementation;
 mod nonlinear_adjoint;
 mod sensitivity_mesh;

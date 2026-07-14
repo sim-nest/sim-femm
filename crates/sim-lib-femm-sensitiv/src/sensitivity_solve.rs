@@ -7,7 +7,8 @@ use sim_lib_femm_post::QuantitySpec;
 use sim_lib_femm_solve::{DenseFallbackSolver, solve_steady};
 use sim_lib_numbers_ad::Dual;
 
-use crate::implementation::{eval_expr_dual, excitation_uses_symbol};
+use crate::expr_eval::eval_expr_dual;
+use crate::implementation::excitation_uses_symbol;
 use crate::sensitivity_mesh::differentiated_mesh;
 use crate::sensitivity_quantity::quantity_derivative;
 use crate::sensitivity_types::{DiffMesh, DiffSolution, DualGeom};

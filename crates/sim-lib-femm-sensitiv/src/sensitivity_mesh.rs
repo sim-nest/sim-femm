@@ -4,7 +4,7 @@ use sim_lib_femm_geometry::{AnalyticRegion2, Geometry2};
 use sim_lib_femm_mesh::{FemMesh2, FemmModel, Mesher};
 use sim_lib_numbers_ad::Dual;
 
-use crate::implementation::eval_expr_dual;
+use crate::expr_eval::eval_expr_dual;
 use crate::sensitivity_types::DiffMesh;
 
 pub(crate) fn differentiated_mesh(
