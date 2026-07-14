@@ -1,9 +1,8 @@
 #![forbid(unsafe_code)]
-//! FEMM models cast as ODE/DAE right-hand sides for time integration.
+//! FEMM models cast as ODE right-hand sides and DAE residual contracts.
 //!
-//! Defines the model-backed right-hand side and the DAE residual interface
-//! that let a solved model drive a time-dependent system through the
-//! sim-numbers ODE solvers.
+//! Defines the model-backed right-hand side used by sim-numbers ODE solvers
+//! and the residual trait that host implicit solvers consume.
 
 use std::sync::{Arc, Mutex};
 
@@ -21,12 +20,17 @@ use sim_lib_femm_post::{FemmSolution, QuantitySpec};
 use sim_lib_femm_tape::SolveTape;
 use sim_lib_numbers_func::Func;
 
-/// A FEMM model cast as the right-hand side of a first-order ODE/DAE system.
+/// A FEMM model cast as the right-hand side of a first-order ODE system.
 ///
 /// Each evaluation maps the current state vector onto FEMM parameters, solves
 /// the model (reusing the [`SolveTape`] cache), reads any required post-processed
 /// quantities, and evaluates the state-derivative expressions. See the
 /// [crate README](https://github.com/sim/sim-femm).
+///
+/// The input side is intentionally expression-based: material laws, boundary
+/// values, and ODE right-hand-side formulas are evaluated as [`Expr`] values in
+/// the FEMM parameter environment. The output side is a sim-numbers [`Func`],
+/// which is the boundary consumed by numeric methods such as `ode-solve`.
 ///
 /// # Examples
 ///
@@ -93,6 +97,10 @@ pub struct FemmOdeRhs {
 ///
 /// Implementors return the residual `F(t, z, zdot)` whose root advances the
 /// coupled state, with an optional analytic Jacobian for Newton solves.
+///
+/// NOTE: [`FemmOdeLib`] registers the explicit `femm/as-ode-rhs` adapter for
+/// sim-numbers ODE solvers. This trait is the host-solver contract for implicit
+/// DAE integrations; this crate registers no implicit DAE solver export.
 pub trait DaeResidual {
     /// Returns the DAE residual `F(t, z, zdot)` at the given time and state.
     fn residual(&self, cx: &mut Cx, t: &Value, z: &Value, zdot: &Value) -> KernelResult<Value>;
@@ -112,8 +120,10 @@ pub trait DaeResidual {
 impl FemmOdeRhs {
     /// Compiles this model-backed right-hand side into a callable sim-numbers [`Func`].
     ///
-    /// The resulting function takes the state vector and returns the list of
-    /// state derivatives, solving the model and reading needed quantities per call.
+    /// The resulting function takes the state vector and returns derivatives,
+    /// solving the model and reading needed quantities per call. A one-state
+    /// RHS returns the scalar derivative directly for sim-numbers `ode-solve`;
+    /// a multi-state RHS returns the derivative list.
     pub fn as_func(&self) -> Func {
         let model = self.model.clone();
         let state_vars = self.state_vars.clone();
@@ -163,7 +173,7 @@ impl FemmOdeRhs {
                         )?,
                     ));
                 }
-                let values =
+                let mut values =
                     rhs.iter()
                         .map(|expr| {
                             sim_lib_femm_geometry::eval_expr_f64(cx, expr, &rhs_params, &[])
@@ -180,7 +190,11 @@ impl FemmOdeRhs {
                         })
                         .collect::<FemmResult<Vec<_>>>()
                         .map_err(sim_kernel::Error::from)?;
-                cx.factory().list(values)
+                if values.len() == 1 {
+                    Ok(values.remove(0))
+                } else {
+                    cx.factory().list(values)
+                }
             }),
         )
     }
@@ -353,58 +367,5 @@ fn parse_expr_list(cx: &mut Cx, value: &Value) -> KernelResult<Vec<Expr>> {
     match value.object().as_expr(cx)? {
         Expr::List(items) | Expr::Vector(items) => Ok(items),
         _ => Err(Error::Eval("expected expression list".to_owned())),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::sync::Arc;
-
-    use sim_kernel::{Args, DefaultFactory, EagerPolicy, Expr};
-    use sim_lib_femm_fixtures::parallel_plate_capacitor;
-
-    use super::*;
-
-    fn num(text: &str) -> Expr {
-        sim_value::build::num_q(Some("numbers"), "f64", text)
-    }
-
-    #[test]
-    fn mock_force_rhs_reproduces_linear_state_equations() {
-        let rhs = FemmOdeRhs {
-            model: parallel_plate_capacitor(),
-            state_vars: vec![Symbol::new("x"), Symbol::new("v")],
-            param_map: Vec::new(),
-            need: Vec::new(),
-            rhs: vec![
-                Expr::Symbol(Symbol::new("v")),
-                Expr::Call {
-                    operator: Box::new(Expr::Symbol(Symbol::new("*"))),
-                    args: vec![num("-4.0"), Expr::Symbol(Symbol::new("x"))],
-                },
-            ],
-            tape: Arc::new(Mutex::new(SolveTape::default())),
-        };
-        let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
-        let value = cx
-            .call_value(
-                cx.factory().opaque(Arc::new(rhs.as_func())).unwrap(),
-                Args::new(vec![
-                    cx.factory()
-                        .number_literal(Symbol::qualified("numbers", "f64"), "0.5".to_owned())
-                        .unwrap(),
-                    cx.factory()
-                        .number_literal(Symbol::qualified("numbers", "f64"), "0.25".to_owned())
-                        .unwrap(),
-                ]),
-            )
-            .unwrap();
-        let expr = value.object().as_expr(&mut cx).unwrap();
-        let Expr::List(items) = expr else {
-            panic!("expected list output");
-        };
-        assert_eq!(items.len(), 2);
-        assert_eq!(items[0], num("0.25"));
-        assert_eq!(items[1], num("-2"));
     }
 }

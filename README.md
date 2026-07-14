@@ -69,8 +69,9 @@ The pipeline runs from a symbolic 2D geometry with attached materials, boundary
 conditions, and sources, through triangular meshing and function spaces, into
 per-element residuals and a global system, to linear and nonlinear solvers, and
 out as derived fields and quantities. Models are first-class callable runtime
-values, so they can be evaluated as functions of their parameters, integrated in
-time as ODE/DAE systems, and differentiated for sensitivity analysis.
+values, so they can be evaluated as functions of their parameters, integrated as
+explicit ODE right-hand sides through sim-numbers, and differentiated for
+sensitivity analysis.
 
 Every completed steady solve carries a `SolveCertificate`: a kernel `Claim` with
 the solver method, convergence flag, final residual, iteration count, solution
@@ -135,8 +136,9 @@ fallbacks.
 - `sim-lib-femm-function` -- wraps a model as a callable mapping parameters to
   quantities, fields, or solutions, registers it with the runtime, and exposes
   `quality()` for value-plus-certificate queries.
-- `sim-lib-femm-ode` -- casts a model coupled to external state as an ODE/DAE
-  right-hand side and integrates it over time.
+- `sim-lib-femm-ode` -- casts a model coupled to external state as an explicit
+  ODE right-hand side for sim-numbers solvers and defines DAE residual contracts
+  for host implicit solvers.
 - `sim-lib-femm-sensitiv` -- total gradients of supported model quantities with
   respect to registered parameters via exact adjoint, direct, or
   finite-difference paths with explicit trust labels.
