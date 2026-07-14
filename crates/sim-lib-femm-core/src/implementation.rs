@@ -397,9 +397,9 @@ pub type FemmResult<T> = std::result::Result<T, FemmError>;
 
 /// List the capability tokens this FEMM build advertises.
 ///
-/// Combines the always-present [`PhysicsKind`] names with feature flags whose
-/// `installed`/`planned` suffix reflects which optional sim-numbers backends
-/// (field domain, fixed-step ODE, adjoint differentiator) are registered.
+/// Combines the always-present [`PhysicsKind`] names with availability flags
+/// for optional sim-numbers backends: field domain, fixed-step ODE, and adjoint
+/// differentiator.
 pub fn femm_capabilities(
     installed_field: bool,
     installed_ptc: bool,

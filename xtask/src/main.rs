@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+//! Repository automation wrapper for sim-femm generated documentation.
 
 mod simdoc;
 

@@ -4,7 +4,7 @@ In one line: It turns a finished solve into the real-world numbers you actually 
 
 ## What it gives you
 
-Solving a model produces a mass of internal values that is not yet an answer to your question. This is the step that reads that finished solution and works out the quantities engineers actually ask for: the energy stored, the force on a part, the flow through a region, the inductance, and field readings at the spots you choose. You point it at a solved model and ask for what you need, and it computes those meaningful figures for you. It bridges the gap between a technically complete solve and the practical numbers that let you make a decision about your design.
+Solving a model produces a mass of internal values before it becomes an answer to your question. This is the step that reads that finished solution and works out the quantities engineers actually ask for: the energy stored, the force on a part, the flow through a region, the inductance, and field readings at the spots you choose. You point it at a solved model and ask for what you need, and it computes those meaningful figures for you. It bridges the gap between a technically complete solve and the practical numbers that let you make a decision about your design.
 
 ## Why you will be glad
 

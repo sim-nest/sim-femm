@@ -3,7 +3,7 @@
   "package_count": 19,
   "packages": [
     {
-      "description": "SIM workspace package for sim lib femm assembly.",
+      "description": "Element residual assembly and global system construction for FEMM physics fronts.",
       "generated_readme": true,
       "manifest": "crates/sim-lib-femm-assembly/Cargo.toml",
       "name": "sim-lib-femm-assembly",
@@ -16,7 +16,7 @@
       ]
     },
     {
-      "description": "SIM workspace package for sim lib femm codec.",
+      "description": "Codec descriptors and read-construct forms for FEMM model, solution, and field values.",
       "generated_readme": true,
       "manifest": "crates/sim-lib-femm-codec/Cargo.toml",
       "name": "sim-lib-femm-codec",
@@ -29,7 +29,7 @@
       ]
     },
     {
-      "description": "SIM workspace package for sim lib femm core.",
+      "description": "Core FEMM types, stable ids, limits, errors, parameter sets, and scalar decoding.",
       "generated_readme": true,
       "manifest": "crates/sim-lib-femm-core/Cargo.toml",
       "name": "sim-lib-femm-core",
@@ -42,7 +42,7 @@
       ]
     },
     {
-      "description": "SIM workspace package for sim lib femm field.",
+      "description": "Derived field projections and sampling for solved FEMM models.",
       "generated_readme": true,
       "manifest": "crates/sim-lib-femm-field/Cargo.toml",
       "name": "sim-lib-femm-field",
@@ -68,7 +68,7 @@
       ]
     },
     {
-      "description": "SIM workspace package for sim lib femm flow.",
+      "description": "Pseudo-transient continuation solver for nonlinear FEMM systems.",
       "generated_readme": true,
       "manifest": "crates/sim-lib-femm-flow/Cargo.toml",
       "name": "sim-lib-femm-flow",
@@ -81,7 +81,7 @@
       ]
     },
     {
-      "description": "SIM workspace package for sim lib femm function.",
+      "description": "Callable FEMM model functions for quantities, fields, solutions, and quality evidence.",
       "generated_readme": true,
       "manifest": "crates/sim-lib-femm-function/Cargo.toml",
       "name": "sim-lib-femm-function",
@@ -94,7 +94,7 @@
       ]
     },
     {
-      "description": "SIM workspace package for sim lib femm geometry.",
+      "description": "Symbolic 2D FEMM geometry and lowering to concrete meshing coordinates.",
       "generated_readme": true,
       "manifest": "crates/sim-lib-femm-geometry/Cargo.toml",
       "name": "sim-lib-femm-geometry",
@@ -107,7 +107,7 @@
       ]
     },
     {
-      "description": "SIM workspace package for sim lib femm material.",
+      "description": "FEMM material properties, boundary conditions, sources, and mesh/output policies.",
       "generated_readme": true,
       "manifest": "crates/sim-lib-femm-material/Cargo.toml",
       "name": "sim-lib-femm-material",
@@ -120,7 +120,7 @@
       ]
     },
     {
-      "description": "SIM workspace package for sim lib femm mesh.",
+      "description": "FEMM model validation, deterministic meshing, and triangular mesh data structures.",
       "generated_readme": true,
       "manifest": "crates/sim-lib-femm-mesh/Cargo.toml",
       "name": "sim-lib-femm-mesh",
@@ -133,7 +133,7 @@
       ]
     },
     {
-      "description": "SIM workspace package for sim lib femm ode.",
+      "description": "Explicit ODE right-hand-side adapter and DAE residual contract for FEMM models.",
       "generated_readme": true,
       "manifest": "crates/sim-lib-femm-ode/Cargo.toml",
       "name": "sim-lib-femm-ode",
@@ -146,7 +146,7 @@
       ]
     },
     {
-      "description": "SIM workspace package for sim lib femm physics.",
+      "description": "Physics front equations for magnetostatic, harmonic, electrostatic, heat, and current FEMM models.",
       "generated_readme": true,
       "manifest": "crates/sim-lib-femm-physics/Cargo.toml",
       "name": "sim-lib-femm-physics",
@@ -159,7 +159,7 @@
       ]
     },
     {
-      "description": "SIM workspace package for sim lib femm post.",
+      "description": "Solved-model quantities for FEMM energy, force, flux, inductance, and field samples.",
       "generated_readme": true,
       "manifest": "crates/sim-lib-femm-post/Cargo.toml",
       "name": "sim-lib-femm-post",
@@ -172,7 +172,7 @@
       ]
     },
     {
-      "description": "SIM workspace package for sim lib femm prelude.",
+      "description": "One-call installer for the SIM FEMM stack and its number dependencies.",
       "generated_readme": true,
       "manifest": "crates/sim-lib-femm-prelude/Cargo.toml",
       "name": "sim-lib-femm-prelude",
@@ -185,7 +185,7 @@
       ]
     },
     {
-      "description": "SIM workspace package for sim lib femm sensitiv.",
+      "description": "Exact adjoint, direct, and finite-difference sensitivities for FEMM quantities.",
       "generated_readme": true,
       "manifest": "crates/sim-lib-femm-sensitiv/Cargo.toml",
       "name": "sim-lib-femm-sensitiv",
@@ -194,11 +194,12 @@
       "root": "crates/sim-lib-femm-sensitiv",
       "target_kinds": [
         "custom-build",
-        "lib"
+        "lib",
+        "test"
       ]
     },
     {
-      "description": "SIM workspace package for sim lib femm solve.",
+      "description": "Linear solve pipeline, certificates, and exported solve evidence for FEMM models.",
       "generated_readme": true,
       "manifest": "crates/sim-lib-femm-solve/Cargo.toml",
       "name": "sim-lib-femm-solve",
@@ -211,7 +212,7 @@
       ]
     },
     {
-      "description": "SIM workspace package for sim lib femm space.",
+      "description": "Function-space and element-geometry helpers for FEMM meshes.",
       "generated_readme": true,
       "manifest": "crates/sim-lib-femm-space/Cargo.toml",
       "name": "sim-lib-femm-space",
@@ -224,7 +225,7 @@
       ]
     },
     {
-      "description": "SIM workspace package for sim lib femm tape.",
+      "description": "Bounded solve cache keyed by FEMM model, mesh, parameter, and solver fingerprints.",
       "generated_readme": true,
       "manifest": "crates/sim-lib-femm-tape/Cargo.toml",
       "name": "sim-lib-femm-tape",
@@ -237,7 +238,7 @@
       ]
     },
     {
-      "description": "SIM workspace package for xtask.",
+      "description": "Repository automation wrapper for sim-femm generated documentation.",
       "generated_readme": true,
       "manifest": "xtask/Cargo.toml",
       "name": "xtask",

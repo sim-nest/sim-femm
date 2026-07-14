@@ -6,22 +6,22 @@ Generated from Cargo metadata by `xtask crate-catalog v1`.
 
 | Package | Publish | Targets | Description |
 | --- | --- | --- | --- |
-| `sim-lib-femm-assembly` | `true` | `custom-build, lib` | SIM workspace package for sim lib femm assembly. |
-| `sim-lib-femm-codec` | `true` | `custom-build, lib` | SIM workspace package for sim lib femm codec. |
-| `sim-lib-femm-core` | `true` | `custom-build, lib` | SIM workspace package for sim lib femm core. |
-| `sim-lib-femm-field` | `true` | `custom-build, lib` | SIM workspace package for sim lib femm field. |
+| `sim-lib-femm-assembly` | `true` | `custom-build, lib` | Element residual assembly and global system construction for FEMM physics fronts. |
+| `sim-lib-femm-codec` | `true` | `custom-build, lib` | Codec descriptors and read-construct forms for FEMM model, solution, and field values. |
+| `sim-lib-femm-core` | `true` | `custom-build, lib` | Core FEMM types, stable ids, limits, errors, parameter sets, and scalar decoding. |
+| `sim-lib-femm-field` | `true` | `custom-build, lib` | Derived field projections and sampling for solved FEMM models. |
 | `sim-lib-femm-fixtures` | `true` | `custom-build, lib` | Deterministic FEMM model fixtures for codec, solve, ODE, and regression tests. |
-| `sim-lib-femm-flow` | `true` | `custom-build, lib` | SIM workspace package for sim lib femm flow. |
-| `sim-lib-femm-function` | `true` | `custom-build, lib` | SIM workspace package for sim lib femm function. |
-| `sim-lib-femm-geometry` | `true` | `custom-build, lib` | SIM workspace package for sim lib femm geometry. |
-| `sim-lib-femm-material` | `true` | `custom-build, lib` | SIM workspace package for sim lib femm material. |
-| `sim-lib-femm-mesh` | `true` | `custom-build, lib` | SIM workspace package for sim lib femm mesh. |
-| `sim-lib-femm-ode` | `true` | `custom-build, lib` | SIM workspace package for sim lib femm ode. |
-| `sim-lib-femm-physics` | `true` | `custom-build, lib` | SIM workspace package for sim lib femm physics. |
-| `sim-lib-femm-post` | `true` | `custom-build, lib` | SIM workspace package for sim lib femm post. |
-| `sim-lib-femm-prelude` | `true` | `custom-build, lib` | SIM workspace package for sim lib femm prelude. |
-| `sim-lib-femm-sensitiv` | `true` | `custom-build, lib` | SIM workspace package for sim lib femm sensitiv. |
-| `sim-lib-femm-solve` | `true` | `custom-build, lib` | SIM workspace package for sim lib femm solve. |
-| `sim-lib-femm-space` | `true` | `custom-build, lib` | SIM workspace package for sim lib femm space. |
-| `sim-lib-femm-tape` | `true` | `custom-build, lib` | SIM workspace package for sim lib femm tape. |
-| `xtask` | `false` | `bin` | SIM workspace package for xtask. |
+| `sim-lib-femm-flow` | `true` | `custom-build, lib` | Pseudo-transient continuation solver for nonlinear FEMM systems. |
+| `sim-lib-femm-function` | `true` | `custom-build, lib` | Callable FEMM model functions for quantities, fields, solutions, and quality evidence. |
+| `sim-lib-femm-geometry` | `true` | `custom-build, lib` | Symbolic 2D FEMM geometry and lowering to concrete meshing coordinates. |
+| `sim-lib-femm-material` | `true` | `custom-build, lib` | FEMM material properties, boundary conditions, sources, and mesh/output policies. |
+| `sim-lib-femm-mesh` | `true` | `custom-build, lib` | FEMM model validation, deterministic meshing, and triangular mesh data structures. |
+| `sim-lib-femm-ode` | `true` | `custom-build, lib` | Explicit ODE right-hand-side adapter and DAE residual contract for FEMM models. |
+| `sim-lib-femm-physics` | `true` | `custom-build, lib` | Physics front equations for magnetostatic, harmonic, electrostatic, heat, and current FEMM models. |
+| `sim-lib-femm-post` | `true` | `custom-build, lib` | Solved-model quantities for FEMM energy, force, flux, inductance, and field samples. |
+| `sim-lib-femm-prelude` | `true` | `custom-build, lib` | One-call installer for the SIM FEMM stack and its number dependencies. |
+| `sim-lib-femm-sensitiv` | `true` | `custom-build, lib, test` | Exact adjoint, direct, and finite-difference sensitivities for FEMM quantities. |
+| `sim-lib-femm-solve` | `true` | `custom-build, lib` | Linear solve pipeline, certificates, and exported solve evidence for FEMM models. |
+| `sim-lib-femm-space` | `true` | `custom-build, lib` | Function-space and element-geometry helpers for FEMM meshes. |
+| `sim-lib-femm-tape` | `true` | `custom-build, lib` | Bounded solve cache keyed by FEMM model, mesh, parameter, and solver fingerprints. |
+| `xtask` | `false` | `bin` | Repository automation wrapper for sim-femm generated documentation. |

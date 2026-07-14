@@ -166,8 +166,7 @@ Each crate's runnable examples are its embedded `recipes/` tree plus the rustdoc
 
 ## Validation
 
-These commands run in the generated constellation workspace so local
-constellation dependencies resolve from sibling checkouts.
+Run validation from this repository:
 
 ```bash
 cargo fmt --check && cargo test --workspace && cargo clippy --workspace -- -D warnings && cargo doc --workspace --no-deps
