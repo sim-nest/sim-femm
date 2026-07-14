@@ -14,6 +14,15 @@ use sim_kernel::{Cx, DefaultFactory, Expr, Value};
 
 use crate::implementation::{FemmError, FemmResult, ParamSet, value_as_f64};
 
+/// Operators accepted by FEMM scalar expression evaluators.
+///
+/// This is the shared policy for primal and sensitivity evaluation. Integer
+/// powers use integer exponent semantics and accept non-positive bases when the
+/// mathematical result is defined; non-integer real powers require a positive
+/// base and fail closed instead of returning `NaN`.
+pub const FEMM_EXPR_OPERATORS: &[&str] =
+    &["+", "*", "-", "/", "pow", "sin", "cos", "exp", "ln", "sqrt"];
+
 /// Decode a two-element `[x y]` point literal into `[f64; 2]`.
 ///
 /// Each coordinate must be a numeric literal (plain decimal or `num/den`
@@ -64,8 +73,9 @@ fn expr_cell_as_f64(expr: &Expr) -> FemmResult<f64> {
 /// bindings.
 ///
 /// Supports numeric literals (plain decimal or `num/den` rational), symbol
-/// lookups (coordinate bindings first, then params), and the small arithmetic
-/// operator set (`+ * - / pow`) used by FEMM geometry expressions.
+/// lookups (coordinate bindings first, then params), and
+/// [`FEMM_EXPR_OPERATORS`]. Non-integer real powers require a positive base and
+/// return [`FemmError::InvalidGeometry`] otherwise.
 pub fn eval_expr_f64(
     cx: &mut Cx,
     expr: &Expr,
@@ -116,7 +126,12 @@ pub fn eval_expr_f64(
                 "-" if values.len() == 1 => Ok(-values[0]),
                 "-" if values.len() == 2 => Ok(values[0] - values[1]),
                 "/" if values.len() == 2 => Ok(values[0] / values[1]),
-                "pow" if values.len() == 2 => Ok(values[0].powf(values[1])),
+                "pow" if values.len() == 2 => eval_pow_f64(values[0], values[1]),
+                "sin" if values.len() == 1 => Ok(values[0].sin()),
+                "cos" if values.len() == 1 => Ok(values[0].cos()),
+                "exp" if values.len() == 1 => Ok(values[0].exp()),
+                "ln" if values.len() == 1 && values[0] > 0.0 => Ok(values[0].ln()),
+                "sqrt" if values.len() == 1 && values[0] >= 0.0 => Ok(values[0].sqrt()),
                 _ => Err(FemmError::InvalidGeometry(format!(
                     "unsupported operator {symbol}"
                 ))),
@@ -125,5 +140,35 @@ pub fn eval_expr_f64(
         _ => Err(FemmError::InvalidGeometry(
             "unsupported expression".to_owned(),
         )),
+    }
+}
+
+fn eval_pow_f64(base: f64, exponent: f64) -> FemmResult<f64> {
+    if let Some(exponent) = integer_exponent(exponent) {
+        if base == 0.0 && exponent < 0 {
+            return Err(FemmError::InvalidGeometry(
+                "pow with negative integer exponent requires nonzero base".to_owned(),
+            ));
+        }
+        return Ok(base.powi(exponent));
+    }
+    if base <= 0.0 {
+        return Err(FemmError::InvalidGeometry(
+            "pow with non-integer exponent requires positive base".to_owned(),
+        ));
+    }
+    Ok(base.powf(exponent))
+}
+
+/// Returns `Some(n)` when `value` is exactly representable as an `i32` exponent.
+pub fn integer_exponent(value: f64) -> Option<i32> {
+    if value.is_finite()
+        && value.fract() == 0.0
+        && value >= f64::from(i32::MIN)
+        && value <= f64::from(i32::MAX)
+    {
+        Some(value as i32)
+    } else {
+        None
     }
 }

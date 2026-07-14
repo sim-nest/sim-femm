@@ -8,17 +8,17 @@
 use std::sync::Arc;
 
 use sim_kernel::{Cx, Expr, Result as KernelResult, Symbol, Value};
-use sim_lib_femm_core::{FemmError, FemmResult, ParamSet};
+use sim_lib_femm_core::{FemmResult, ParamSet};
 use sim_lib_femm_function::{FemmFuncPayload, ModelCallable, OutputQuery};
 use sim_lib_femm_material::{Boundary, BoundaryKind, Material, MeshPolicy, Source};
 use sim_lib_femm_mesh::FemmModel;
 use sim_lib_femm_post::QuantitySpec;
-use sim_lib_numbers_ad::{Dual, Scalarish, Tape, Var};
 use sim_lib_numbers_func::Func;
 use sim_lib_numbers_numeric::{
     DiffOpts, Differentiator, NumericKind, NumericPlugin, register_differentiator,
 };
 
+use crate::expr_eval::{direct_expr_derivative, reverse_expr_gradient};
 use crate::sensitivity_solve::built_in_quantity_gradient;
 
 /// Which differentiation route produced a sensitivity result.
@@ -135,200 +135,6 @@ fn exact_if_parameter_independent(
         wrt.iter().cloned().map(|symbol| (symbol, 0.0)).collect(),
         path,
     ))
-}
-
-fn direct_expr_derivative(
-    cx: &mut Cx,
-    expr: &Expr,
-    params: &ParamSet,
-    wrt: &Symbol,
-) -> FemmResult<f64> {
-    Ok(eval_expr_dual(cx, expr, params, Some(wrt), &[])?.d[0])
-}
-
-pub(crate) fn eval_expr_dual(
-    cx: &mut Cx,
-    expr: &Expr,
-    params: &ParamSet,
-    wrt: Option<&Symbol>,
-    coords: &[(&str, f64)],
-) -> FemmResult<Dual<1>> {
-    match expr {
-        Expr::Number(number) => parse_number(&number.canonical).map(Dual::<1>::cst),
-        Expr::Symbol(symbol) | Expr::Local(symbol) => {
-            if let Some((_, value)) = coords
-                .iter()
-                .find(|(name, _)| symbol.name.as_ref() == *name)
-            {
-                return Ok(Dual::<1>::cst(*value));
-            }
-            let value = params
-                .get(symbol)
-                .ok_or_else(|| FemmError::UnknownFemmParameter(symbol.to_string()))?;
-            let scalar = sim_lib_femm_core::value_as_f64(cx, value)?;
-            if wrt == Some(symbol) {
-                Ok(Dual::<1>::var(scalar, 0))
-            } else {
-                Ok(Dual::<1>::cst(scalar))
-            }
-        }
-        Expr::Call { operator, args } => {
-            let Expr::Symbol(symbol) = operator.as_ref() else {
-                return Err(FemmError::SensitivityUnavailable(
-                    "unsupported non-symbol operator".to_owned(),
-                ));
-            };
-            let values = args
-                .iter()
-                .map(|arg| eval_expr_dual(cx, arg, params, wrt, coords))
-                .collect::<FemmResult<Vec<_>>>()?;
-            apply_dual_op(symbol, &values)
-        }
-        _ => Err(FemmError::SensitivityUnavailable(
-            "unsupported expression in exact direct gradient".to_owned(),
-        )),
-    }
-}
-
-fn apply_dual_op(symbol: &Symbol, values: &[Dual<1>]) -> FemmResult<Dual<1>> {
-    match (symbol.name.as_ref(), values) {
-        ("+", []) => Ok(Dual::cst(0.0)),
-        ("+", values) => Ok(values
-            .iter()
-            .copied()
-            .fold(Dual::cst(0.0), |acc, value| acc + value)),
-        ("*", []) => Ok(Dual::cst(1.0)),
-        ("*", values) => Ok(values
-            .iter()
-            .copied()
-            .fold(Dual::cst(1.0), |acc, value| acc * value)),
-        ("-", [value]) => Ok(-*value),
-        ("-", [left, right]) => Ok(*left - *right),
-        ("/", [left, right]) => Ok(*left / *right),
-        ("pow", [base, exp]) => Ok((base.ln() * *exp).exp()),
-        ("sin", [arg]) => Ok(arg.sin()),
-        ("cos", [arg]) => Ok(arg.cos()),
-        ("exp", [arg]) => Ok(arg.exp()),
-        ("ln", [arg]) => Ok(arg.ln()),
-        ("sqrt", [arg]) => Ok(arg.sqrt()),
-        _ => Err(FemmError::SensitivityUnavailable(format!(
-            "unsupported operator {symbol} in exact direct gradient"
-        ))),
-    }
-}
-
-fn reverse_expr_gradient(
-    cx: &mut Cx,
-    expr: &Expr,
-    params: &ParamSet,
-    wrt: &[Symbol],
-) -> FemmResult<Vec<(Symbol, f64)>> {
-    let mut tape = Tape::new();
-    let inputs = wrt
-        .iter()
-        .enumerate()
-        .map(|(slot, symbol)| {
-            let value = params
-                .get(symbol)
-                .ok_or_else(|| FemmError::UnknownFemmParameter(symbol.to_string()))
-                .and_then(|value| sim_lib_femm_core::value_as_f64(cx, value))?;
-            Ok((symbol.clone(), slot, tape.input(slot, value)))
-        })
-        .collect::<FemmResult<Vec<_>>>()?;
-    let output = eval_expr_tape(cx, expr, params, &inputs, &mut tape, &[])?;
-    let gradient = tape.grad(output, wrt.len());
-    Ok(inputs
-        .into_iter()
-        .map(|(symbol, slot, _)| (symbol, gradient[slot]))
-        .collect())
-}
-
-fn eval_expr_tape(
-    cx: &mut Cx,
-    expr: &Expr,
-    params: &ParamSet,
-    wrt: &[(Symbol, usize, Var)],
-    tape: &mut Tape,
-    coords: &[(&str, f64)],
-) -> FemmResult<Var> {
-    match expr {
-        Expr::Number(number) => parse_number(&number.canonical).map(|value| tape.constant(value)),
-        Expr::Symbol(symbol) | Expr::Local(symbol) => {
-            if let Some((_, value)) = coords
-                .iter()
-                .find(|(name, _)| symbol.name.as_ref() == *name)
-            {
-                return Ok(tape.constant(*value));
-            }
-            if let Some((_, _, var)) = wrt.iter().find(|(name, _, _)| name == symbol) {
-                return Ok(*var);
-            }
-            let value = params
-                .get(symbol)
-                .ok_or_else(|| FemmError::UnknownFemmParameter(symbol.to_string()))?;
-            sim_lib_femm_core::value_as_f64(cx, value).map(|value| tape.constant(value))
-        }
-        Expr::Call { operator, args } => {
-            let Expr::Symbol(symbol) = operator.as_ref() else {
-                return Err(FemmError::SensitivityUnavailable(
-                    "unsupported non-symbol operator".to_owned(),
-                ));
-            };
-            let values = args
-                .iter()
-                .map(|arg| eval_expr_tape(cx, arg, params, wrt, tape, coords))
-                .collect::<FemmResult<Vec<_>>>()?;
-            apply_tape_op(symbol, &values, tape)
-        }
-        _ => Err(FemmError::SensitivityUnavailable(
-            "unsupported expression in exact adjoint gradient".to_owned(),
-        )),
-    }
-}
-
-fn apply_tape_op(symbol: &Symbol, values: &[Var], tape: &mut Tape) -> FemmResult<Var> {
-    match (symbol.name.as_ref(), values) {
-        ("+", []) => Ok(tape.constant(0.0)),
-        ("+", values) => {
-            let mut acc = tape.constant(0.0);
-            for value in values {
-                acc = tape.add(acc, *value);
-            }
-            Ok(acc)
-        }
-        ("*", []) => Ok(tape.constant(1.0)),
-        ("*", values) => {
-            let mut acc = tape.constant(1.0);
-            for value in values {
-                acc = tape.mul(acc, *value);
-            }
-            Ok(acc)
-        }
-        ("-", [value]) => {
-            let zero = tape.constant(0.0);
-            Ok(tape.sub(zero, *value))
-        }
-        ("-", [left, right]) => Ok(tape.sub(*left, *right)),
-        ("/", [left, right]) => Ok(tape.div(*left, *right)),
-        ("pow", [base, exp]) => {
-            let ln_base = tape.ln(*base);
-            let scaled = tape.mul(ln_base, *exp);
-            Ok(tape.exp(scaled))
-        }
-        ("sin", [arg]) => Ok(tape.sin(*arg)),
-        ("cos", [arg]) => Ok(tape.cos(*arg)),
-        ("exp", [arg]) => Ok(tape.exp(*arg)),
-        ("ln", [arg]) => Ok(tape.ln(*arg)),
-        ("sqrt", [arg]) => Ok(tape.sqrt(*arg)),
-        _ => Err(FemmError::SensitivityUnavailable(format!(
-            "unsupported operator {symbol} in exact adjoint gradient"
-        ))),
-    }
-}
-
-fn parse_number(text: &str) -> FemmResult<f64> {
-    sim_lib_femm_core::parse_displayed_number(text)
-        .ok_or_else(|| FemmError::SensitivityUnavailable(format!("bad number literal {text}")))
 }
 
 struct FemmAdjointPlugin;
