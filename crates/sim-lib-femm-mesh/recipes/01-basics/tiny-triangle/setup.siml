@@ -1,1 +1,9 @@
-(quote (#(femm/Mesh v1 3 1 "table:femm/mesh/citizen") triangle nodes 3 elements 1))
+(expr:map
+  [kind femm/tiny-triangle-mesh]
+  [operation deterministic-mesh]
+  [mesh "#(femm/Mesh v1 3 1 \"table:femm/mesh/citizen\")"]
+  [element triangle]
+  [nodes 3]
+  [elements 1]
+  [fixture femm-fixtures/parallel-plate-capacitor]
+  [mode modeled])

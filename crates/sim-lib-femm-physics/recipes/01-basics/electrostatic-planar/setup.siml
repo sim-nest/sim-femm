@@ -1,1 +1,8 @@
-(quote (#(femm/Physics v1 "electrostatic" "planar") weak-form scalar-potential))
+(expr:map
+  [kind femm/electrostatic-planar]
+  [operation weak-form]
+  [physics "#(femm/Physics v1 \"electrostatic\" \"planar\")"]
+  [unknown scalar-potential]
+  [fixture femm-fixtures/parallel-plate-capacitor]
+  [behavior fail-closed]
+  [mode modeled])

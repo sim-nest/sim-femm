@@ -1,1 +1,9 @@
-(quote (#(femm/Post v1 "energy" "region:air") quantity scalar))
+(expr:map
+  [kind femm/energy-query]
+  [operation postprocess]
+  [post "#(femm/Post v1 \"energy\" \"region:air\")"]
+  [fixture femm-fixtures/parallel-plate-capacitor]
+  [quantity energy]
+  [target region:air]
+  [result scalar]
+  [mode modeled])

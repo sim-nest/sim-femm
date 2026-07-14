@@ -1,1 +1,8 @@
-(quote (#(femm/Function v1 1 "quantity:energy" ("gap")) output-query vars))
+(expr:map
+  [kind femm/energy-function]
+  [operation as-func]
+  [function "#(femm/Function v1 1 \"quantity:energy\" (\"gap\"))"]
+  [fixture femm-fixtures/parallel-plate-capacitor]
+  [query energy]
+  [vars [gap]]
+  [mode modeled])

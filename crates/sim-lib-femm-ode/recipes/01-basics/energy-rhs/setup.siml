@@ -1,1 +1,8 @@
-(quote (#(femm/Ode v1 ("x" "v") ("energy")) rhs projection))
+(expr:map
+  [kind femm/energy-rhs]
+  [operation as-ode-rhs]
+  [ode "#(femm/Ode v1 (\"x\" \"v\") (\"energy\"))"]
+  [fixture femm-fixtures/plunger-actuator-ode]
+  [state [x v]]
+  [rhs [energy]]
+  [mode modeled])

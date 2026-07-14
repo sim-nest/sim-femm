@@ -1,1 +1,8 @@
-(quote (#(femm/Space v1 1 "planar") basis linear triangle))
+(expr:map
+  [kind femm/planar-space]
+  [operation build-space]
+  [space "#(femm/Space v1 1 \"planar\")"]
+  [basis linear]
+  [element triangle]
+  [fixture femm-fixtures/parallel-plate-capacitor]
+  [mode modeled])

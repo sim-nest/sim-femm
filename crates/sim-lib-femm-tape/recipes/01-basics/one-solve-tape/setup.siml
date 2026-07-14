@@ -1,1 +1,9 @@
-(quote (#(femm/Tape v1 1 1 "stable:femm/tape/citizen") replay deterministic))
+(expr:map
+  [kind femm/one-solve-tape]
+  [operation replay-solve]
+  [tape "#(femm/Tape v1 1 1 \"stable:femm/tape/citizen\")"]
+  [fixture femm-fixtures/parallel-plate-capacitor]
+  [factor-cache 1]
+  [solution-cache 1]
+  [deterministic true]
+  [mode modeled])

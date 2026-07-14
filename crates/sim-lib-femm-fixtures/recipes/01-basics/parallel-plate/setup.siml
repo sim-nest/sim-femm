@@ -1,1 +1,9 @@
-(quote (#(femm/Model v1 1 "parallel-plate-capacitor" "electrostatic" "planar" ("gap-mm")) example tiny))
+(expr:map
+  [kind femm/parallel-plate-fixture]
+  [operation fixture-model]
+  [fixture femm-fixtures/parallel-plate-capacitor]
+  [model "#(femm/Model v1 1 \"parallel-plate-capacitor\" \"electrostatic\" \"planar\" (\"gap-mm\"))"]
+  [inputs [gap-mm]]
+  [physics electrostatic]
+  [formulation planar]
+  [mode modeled])

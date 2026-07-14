@@ -1,1 +1,9 @@
-(quote (femm-flow model mesh assemble solve post steady deterministic))
+(expr:map
+  [kind femm/tiny-pipeline]
+  [operation model-mesh-assemble-solve-post]
+  [fixture femm-fixtures/parallel-plate-capacitor]
+  [steps [model mesh assemble solve post]]
+  [solver sparse-lu]
+  [post energy]
+  [deterministic true]
+  [mode modeled])
