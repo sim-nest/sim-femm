@@ -1,5 +1,138 @@
 {
-  "schema": "sim.rustdoc-index.v1",
-  "repo": "sim-femm",
-  "target_doc": "target/doc/"
+  "generator": "xtask repo-contract v1",
+  "packages": [
+    {
+      "crate_name": "sim_lib_femm_assembly",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-femm-assembly/Cargo.toml",
+      "package": "sim-lib-femm-assembly",
+      "summary": "Finite-element system assembly for the FEMM domain."
+    },
+    {
+      "crate_name": "sim_lib_femm_codec",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-femm-codec/Cargo.toml",
+      "package": "sim-lib-femm-codec",
+      "summary": "Codec surface for FEMM model, solution, and field descriptors."
+    },
+    {
+      "crate_name": "sim_lib_femm_core",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-femm-core/Cargo.toml",
+      "package": "sim-lib-femm-core",
+      "summary": "Shared FEMM substrate: core types, stable ids, errors, and domain vocabulary."
+    },
+    {
+      "crate_name": "sim_lib_femm_field",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-femm-field/Cargo.toml",
+      "package": "sim-lib-femm-field",
+      "summary": "Field representations and projections over FEMM solutions."
+    },
+    {
+      "crate_name": "sim_lib_femm_fixtures",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-femm-fixtures/Cargo.toml",
+      "package": "sim-lib-femm-fixtures",
+      "summary": "Deterministic FEMM model fixtures for codec, solve, ODE, and regression tests."
+    },
+    {
+      "crate_name": "sim_lib_femm_flow",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-femm-flow/Cargo.toml",
+      "package": "sim-lib-femm-flow",
+      "summary": "Nonlinear solve flow: pseudo-transient continuation and solve diagnostics."
+    },
+    {
+      "crate_name": "sim_lib_femm_function",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-femm-function/Cargo.toml",
+      "package": "sim-lib-femm-function",
+      "summary": "FEMM models as first-class callable runtime functions."
+    },
+    {
+      "crate_name": "sim_lib_femm_geometry",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-femm-geometry/Cargo.toml",
+      "package": "sim-lib-femm-geometry",
+      "summary": "Two-dimensional FEMM geometry: nodes, segments, arcs, regions, and labels."
+    },
+    {
+      "crate_name": "sim_lib_femm_material",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-femm-material/Cargo.toml",
+      "package": "sim-lib-femm-material",
+      "summary": "Material, boundary, and source descriptions for FEMM models."
+    },
+    {
+      "crate_name": "sim_lib_femm_mesh",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-femm-mesh/Cargo.toml",
+      "package": "sim-lib-femm-mesh",
+      "summary": "FEMM model definition, meshing, and model validation."
+    },
+    {
+      "crate_name": "sim_lib_femm_ode",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-femm-ode/Cargo.toml",
+      "package": "sim-lib-femm-ode",
+      "summary": "Time integration of FEMM models as ODE right-hand sides and DAE residuals."
+    },
+    {
+      "crate_name": "sim_lib_femm_physics",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-femm-physics/Cargo.toml",
+      "package": "sim-lib-femm-physics",
+      "summary": "Governing physics fronts for the supported FEMM formulations."
+    },
+    {
+      "crate_name": "sim_lib_femm_post",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-femm-post/Cargo.toml",
+      "package": "sim-lib-femm-post",
+      "summary": "Post-processing of FEMM solutions into derived quantities."
+    },
+    {
+      "crate_name": "sim_lib_femm_prelude",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-femm-prelude/Cargo.toml",
+      "package": "sim-lib-femm-prelude",
+      "summary": "Umbrella prelude that installs the full FEMM library stack."
+    },
+    {
+      "crate_name": "sim_lib_femm_sensitiv",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-femm-sensitiv/Cargo.toml",
+      "package": "sim-lib-femm-sensitiv",
+      "summary": "Sensitivity and adjoint analysis of FEMM quantities."
+    },
+    {
+      "crate_name": "sim_lib_femm_solve",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-femm-solve/Cargo.toml",
+      "package": "sim-lib-femm-solve",
+      "summary": "Linear solvers and the steady-state FEMM solve pipeline."
+    },
+    {
+      "crate_name": "sim_lib_femm_space",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-femm-space/Cargo.toml",
+      "package": "sim-lib-femm-space",
+      "summary": "Function and DOF spaces over the FEMM mesh."
+    },
+    {
+      "crate_name": "sim_lib_femm_tape",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-femm-tape/Cargo.toml",
+      "package": "sim-lib-femm-tape",
+      "summary": "Solve tape: cached factorizations and solutions keyed by fingerprint."
+    },
+    {
+      "crate_name": "xtask",
+      "group": "workspace",
+      "manifest": "xtask/Cargo.toml",
+      "package": "xtask",
+      "summary": "Repository automation wrapper for sim-femm generated documentation."
+    }
+  ]
 }
