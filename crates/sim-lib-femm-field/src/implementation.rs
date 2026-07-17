@@ -233,7 +233,8 @@ fn field_shape_symbol() -> Symbol {
 
 #[sim_citizen_derive::non_citizen(
     reason = "numbers/field number-domain marker; reconstruct by loading the FEMM field lib",
-    kind = "marker"
+    kind = "marker",
+    descriptor = "numbers/field"
 )]
 struct FieldDomain;
 
