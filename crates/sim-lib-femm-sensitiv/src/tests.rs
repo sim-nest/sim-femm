@@ -18,6 +18,13 @@ fn num(text: &str) -> Expr {
     sim_value::build::num_q(Some("numbers"), "f64", text)
 }
 
+fn call(operator: &str, args: Vec<Expr>) -> Expr {
+    Expr::Call {
+        operator: Box::new(Expr::Symbol(sim_kernel::Symbol::new(operator))),
+        args,
+    }
+}
+
 fn model() -> ModelCallable {
     ModelCallable {
         model: sim_lib_femm_mesh::FemmModel {
@@ -115,13 +122,17 @@ fn boundary_model() -> ModelCallable {
     callable
 }
 
-fn params(cx: &mut Cx) -> sim_lib_femm_core::ParamSet {
-    sim_lib_femm_core::ParamSet::new(vec![(
+fn params(cx: &mut Cx) -> ParamSet {
+    gap_params(cx, "0.5")
+}
+
+fn gap_params(cx: &mut Cx, value: &str) -> ParamSet {
+    ParamSet::new(vec![(
         sim_kernel::Symbol::new("gap"),
         cx.factory()
             .number_literal(
                 sim_kernel::Symbol::qualified("numbers", "f64"),
-                "0.5".to_owned(),
+                value.to_owned(),
             )
             .unwrap(),
     )])
@@ -315,6 +326,28 @@ fn dependent_builtin_quantity_uses_exact_adjoint_path() {
     .unwrap();
     assert_eq!(path, SensitivityPath::AdjointExact);
     assert!((gradient[0].1 - 0.5).abs() < 1.0e-9);
+}
+
+#[test]
+fn boundary_derivative_errors_are_not_zeroed() {
+    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut callable = boundary_model();
+    callable.model.boundaries[0].value =
+        call("sqrt", vec![Expr::Symbol(sim_kernel::Symbol::new("gap"))]);
+    let gap = sim_kernel::Symbol::new("gap");
+    let base_params = gap_params(&mut cx, "0.0");
+    let err = adjoint_gradient(
+        &mut cx,
+        &callable,
+        OutputQuery::Quantity(QuantitySpec::Energy { region: None }),
+        base_params,
+        std::slice::from_ref(&gap),
+    )
+    .unwrap_err();
+    assert!(matches!(
+        err,
+        sim_lib_femm_core::FemmError::SensitivityUnavailable(_)
+    ));
 }
 
 #[test]

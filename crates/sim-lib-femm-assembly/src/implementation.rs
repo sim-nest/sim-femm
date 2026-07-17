@@ -307,7 +307,14 @@ fn source_density(
                 current,
                 ..
             } if src == region => {
-                eval_expr_f64(cx, turns, params, &[])? * eval_expr_f64(cx, current, params, &[])?
+                let value = eval_expr_f64(cx, turns, params, &[])?
+                    * eval_expr_f64(cx, current, params, &[])?;
+                if !value.is_finite() {
+                    return Err(FemmError::InvalidGeometry(
+                        "non-finite circuit coil source".to_owned(),
+                    ));
+                }
+                value
             }
             _ => 0.0,
         };
@@ -353,7 +360,7 @@ fn apply_dirichlet_conditions(
                         dense.len()
                     )));
                 }
-                let value = boundary_value(boundary, &meshed.params);
+                let value = boundary_value(boundary, &meshed.params)?;
                 for row in 0..dense.len() {
                     if row != node {
                         residual[row] -= dense[row][node] * value;
@@ -371,12 +378,15 @@ fn apply_dirichlet_conditions(
     Ok(())
 }
 
-fn boundary_value(boundary: &sim_lib_femm_material::Boundary, params: &ParamSet) -> f64 {
+fn boundary_value(
+    boundary: &sim_lib_femm_material::Boundary,
+    params: &ParamSet,
+) -> FemmResult<f64> {
     let mut cx = Cx::new(
         std::sync::Arc::new(sim_kernel::EagerPolicy),
         std::sync::Arc::new(sim_kernel::DefaultFactory),
     );
-    eval_expr_f64(&mut cx, &boundary.value, params, &[]).unwrap_or(0.0)
+    eval_expr_f64(&mut cx, &boundary.value, params, &[])
 }
 
 #[cfg(test)]
@@ -431,6 +441,22 @@ mod tests {
 
     fn num(text: &str) -> Expr {
         sim_value::build::num_q(Some("numbers"), "f64", text)
+    }
+
+    fn call(operator: &str, args: Vec<Expr>) -> Expr {
+        Expr::Call {
+            operator: Box::new(Expr::Symbol(Symbol::new(operator))),
+            args,
+        }
+    }
+
+    fn param(cx: &mut Cx, symbol: &str, canonical: &str) -> ParamSet {
+        ParamSet::new(vec![(
+            Symbol::new(symbol),
+            cx.factory()
+                .number_literal(Symbol::qualified("numbers", "f64"), canonical.to_owned())
+                .unwrap(),
+        )])
     }
 
     fn model() -> FemmModel {
@@ -636,6 +662,110 @@ mod tests {
             &mut cx,
             &PoissonFront,
             &model(),
+            &meshed,
+            &FemmLimits::default(),
+        );
+        assert!(matches!(result, Err(FemmError::InvalidGeometry(_))));
+    }
+
+    #[test]
+    fn invalid_boundary_number_errors_instead_of_grounding_zero() {
+        let mut cx = test_cx();
+        let mut bad_model = model();
+        bad_model.boundaries[0].value = num("1/0");
+        let meshed = MeshedModel {
+            model_id: StableId(1),
+            params: ParamSet::default(),
+            mesh: FemMesh2 {
+                xy: vec![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
+                tri: vec![[0, 1, 2]],
+                elem_region: vec![Symbol::new("air")],
+                edge_boundary: vec![(0, 1, Symbol::new("wall"))],
+            },
+            diagnostics: Vec::new(),
+        };
+        let result = assemble_system(
+            &mut cx,
+            &PoissonFront,
+            &bad_model,
+            &meshed,
+            &FemmLimits::default(),
+        );
+        assert!(matches!(result, Err(FemmError::InvalidGeometry(_))));
+    }
+
+    #[test]
+    fn boundary_division_by_zero_errors_instead_of_grounding_zero() {
+        let mut cx = test_cx();
+        let mut bad_model = model();
+        bad_model.boundaries[0].value = call("/", vec![num("1.0"), num("0.0")]);
+        let meshed = MeshedModel {
+            model_id: StableId(1),
+            params: ParamSet::default(),
+            mesh: FemMesh2 {
+                xy: vec![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
+                tri: vec![[0, 1, 2]],
+                elem_region: vec![Symbol::new("air")],
+                edge_boundary: vec![(0, 1, Symbol::new("wall"))],
+            },
+            diagnostics: Vec::new(),
+        };
+        let result = assemble_system(
+            &mut cx,
+            &PoissonFront,
+            &bad_model,
+            &meshed,
+            &FemmLimits::default(),
+        );
+        assert!(matches!(result, Err(FemmError::InvalidGeometry(_))));
+    }
+
+    #[test]
+    fn unknown_boundary_parameter_errors_instead_of_grounding_zero() {
+        let mut cx = test_cx();
+        let mut bad_model = model();
+        bad_model.boundaries[0].value = Expr::Symbol(Symbol::new("missing"));
+        let meshed = MeshedModel {
+            model_id: StableId(1),
+            params: ParamSet::default(),
+            mesh: FemMesh2 {
+                xy: vec![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
+                tri: vec![[0, 1, 2]],
+                elem_region: vec![Symbol::new("air")],
+                edge_boundary: vec![(0, 1, Symbol::new("wall"))],
+            },
+            diagnostics: Vec::new(),
+        };
+        let result = assemble_system(
+            &mut cx,
+            &PoissonFront,
+            &bad_model,
+            &meshed,
+            &FemmLimits::default(),
+        );
+        assert!(matches!(result, Err(FemmError::UnknownFemmParameter(_))));
+    }
+
+    #[test]
+    fn non_finite_boundary_parameter_errors_instead_of_grounding_zero() {
+        let mut cx = test_cx();
+        let mut bad_model = model();
+        bad_model.boundaries[0].value = Expr::Symbol(Symbol::new("x"));
+        let meshed = MeshedModel {
+            model_id: StableId(1),
+            params: param(&mut cx, "x", "inf"),
+            mesh: FemMesh2 {
+                xy: vec![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
+                tri: vec![[0, 1, 2]],
+                elem_region: vec![Symbol::new("air")],
+                edge_boundary: vec![(0, 1, Symbol::new("wall"))],
+            },
+            diagnostics: Vec::new(),
+        };
+        let result = assemble_system(
+            &mut cx,
+            &PoissonFront,
+            &bad_model,
             &meshed,
             &FemmLimits::default(),
         );

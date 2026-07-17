@@ -206,13 +206,14 @@ fn source_density(
                     turns,
                     current,
                     ..
-                } if src == region => {
+                } if src == region => finite_dual(
                     eval_expr_dual(cx, turns, params, Some(wrt), &[])?
-                        * eval_expr_dual(cx, current, params, Some(wrt), &[])?
-                }
+                        * eval_expr_dual(cx, current, params, Some(wrt), &[])?,
+                    "non-finite circuit coil source",
+                )?,
                 _ => Dual::cst(0.0),
             };
-            Ok(acc + contribution)
+            finite_dual(acc + contribution, "non-finite source density")
         })
 }
 
@@ -352,5 +353,13 @@ fn floor_dual(value: Dual<1>, floor: f64) -> Dual<1> {
         value
     } else {
         Dual::cst(floor)
+    }
+}
+
+fn finite_dual(value: Dual<1>, context: &str) -> FemmResult<Dual<1>> {
+    if value.v.is_finite() && value.d.iter().all(|derivative| derivative.is_finite()) {
+        Ok(value)
+    } else {
+        Err(FemmError::SensitivityUnavailable(context.to_owned()))
     }
 }

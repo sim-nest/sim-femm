@@ -27,7 +27,7 @@ pub(crate) fn eval_expr_dual(
                 .iter()
                 .find(|(name, _)| symbol.name.as_ref() == *name)
             {
-                return Ok(Dual::<1>::cst(*value));
+                return finite_dual(Dual::<1>::cst(*value), "non-finite coordinate binding");
             }
             let value = params
                 .get(symbol)
@@ -60,24 +60,37 @@ pub(crate) fn eval_expr_dual(
 fn apply_dual_op(symbol: &Symbol, values: &[Dual<1>]) -> FemmResult<Dual<1>> {
     match (symbol.name.as_ref(), values) {
         ("+", []) => Ok(Dual::cst(0.0)),
-        ("+", values) => Ok(values
-            .iter()
-            .copied()
-            .fold(Dual::cst(0.0), |acc, value| acc + value)),
+        ("+", values) => finite_dual(
+            values
+                .iter()
+                .copied()
+                .fold(Dual::cst(0.0), |acc, value| acc + value),
+            "non-finite scalar addition",
+        ),
         ("*", []) => Ok(Dual::cst(1.0)),
-        ("*", values) => Ok(values
-            .iter()
-            .copied()
-            .fold(Dual::cst(1.0), |acc, value| acc * value)),
-        ("-", [value]) => Ok(-*value),
-        ("-", [left, right]) => Ok(*left - *right),
-        ("/", [left, right]) => Ok(*left / *right),
+        ("*", values) => finite_dual(
+            values
+                .iter()
+                .copied()
+                .fold(Dual::cst(1.0), |acc, value| acc * value),
+            "non-finite scalar multiplication",
+        ),
+        ("-", [value]) => finite_dual(-*value, "non-finite scalar negation"),
+        ("-", [left, right]) => finite_dual(*left - *right, "non-finite scalar subtraction"),
+        ("/", [left, right]) => {
+            if right.v == 0.0 {
+                return Err(FemmError::SensitivityUnavailable(
+                    "division by zero in scalar expression".to_owned(),
+                ));
+            }
+            finite_dual(*left / *right, "non-finite scalar division")
+        }
         ("pow", [base, exp]) => apply_dual_pow(*base, *exp),
-        ("sin", [arg]) => Ok(arg.sin()),
-        ("cos", [arg]) => Ok(arg.cos()),
-        ("exp", [arg]) => Ok(arg.exp()),
-        ("ln", [arg]) if arg.v > 0.0 => Ok(arg.ln()),
-        ("sqrt", [arg]) if arg.v >= 0.0 => Ok(arg.sqrt()),
+        ("sin", [arg]) => finite_dual(arg.sin(), "non-finite sin"),
+        ("cos", [arg]) => finite_dual(arg.cos(), "non-finite cos"),
+        ("exp", [arg]) => finite_dual(arg.exp(), "non-finite exp"),
+        ("ln", [arg]) if arg.v > 0.0 => finite_dual(arg.ln(), "non-finite ln"),
+        ("sqrt", [arg]) if arg.v >= 0.0 => finite_dual(arg.sqrt(), "non-finite sqrt"),
         _ => Err(FemmError::SensitivityUnavailable(format!(
             "unsupported operator {symbol} in exact direct gradient"
         ))),
@@ -149,6 +162,11 @@ fn eval_expr_tape(
                 .iter()
                 .find(|(name, _)| symbol.name.as_ref() == *name)
             {
+                if !value.is_finite() {
+                    return Err(FemmError::SensitivityUnavailable(
+                        "non-finite coordinate binding".to_owned(),
+                    ));
+                }
                 return Ok(TapeScalar::constant(tape.constant(*value)));
             }
             if let Some((_, _, var)) = wrt.iter().find(|(name, _, _)| name == symbol) {
@@ -192,10 +210,7 @@ fn apply_tape_op(
                 acc = tape.add(acc, value.var);
                 depends_on_input |= value.depends_on_input;
             }
-            Ok(TapeScalar {
-                var: acc,
-                depends_on_input,
-            })
+            finite_tape_scalar(acc, depends_on_input, tape, "non-finite scalar addition")
         }
         ("*", []) => Ok(TapeScalar::constant(tape.constant(1.0))),
         ("*", values) => {
@@ -205,47 +220,72 @@ fn apply_tape_op(
                 acc = tape.mul(acc, value.var);
                 depends_on_input |= value.depends_on_input;
             }
-            Ok(TapeScalar {
-                var: acc,
+            finite_tape_scalar(
+                acc,
                 depends_on_input,
-            })
+                tape,
+                "non-finite scalar multiplication",
+            )
         }
         ("-", [value]) => {
             let zero = tape.constant(0.0);
-            Ok(TapeScalar {
-                var: tape.sub(zero, value.var),
-                depends_on_input: value.depends_on_input,
-            })
+            finite_tape_scalar(
+                tape.sub(zero, value.var),
+                value.depends_on_input,
+                tape,
+                "non-finite scalar negation",
+            )
         }
-        ("-", [left, right]) => Ok(TapeScalar {
-            var: tape.sub(left.var, right.var),
-            depends_on_input: left.depends_on_input || right.depends_on_input,
-        }),
-        ("/", [left, right]) => Ok(TapeScalar {
-            var: tape.div(left.var, right.var),
-            depends_on_input: left.depends_on_input || right.depends_on_input,
-        }),
+        ("-", [left, right]) => finite_tape_scalar(
+            tape.sub(left.var, right.var),
+            left.depends_on_input || right.depends_on_input,
+            tape,
+            "non-finite scalar subtraction",
+        ),
+        ("/", [left, right]) => {
+            if tape.value(right.var) == 0.0 {
+                return Err(FemmError::SensitivityUnavailable(
+                    "division by zero in scalar expression".to_owned(),
+                ));
+            }
+            finite_tape_scalar(
+                tape.div(left.var, right.var),
+                left.depends_on_input || right.depends_on_input,
+                tape,
+                "non-finite scalar division",
+            )
+        }
         ("pow", [base, exp]) => apply_tape_pow(*base, *exp, tape),
-        ("sin", [arg]) => Ok(TapeScalar {
-            var: tape.sin(arg.var),
-            depends_on_input: arg.depends_on_input,
-        }),
-        ("cos", [arg]) => Ok(TapeScalar {
-            var: tape.cos(arg.var),
-            depends_on_input: arg.depends_on_input,
-        }),
-        ("exp", [arg]) => Ok(TapeScalar {
-            var: tape.exp(arg.var),
-            depends_on_input: arg.depends_on_input,
-        }),
-        ("ln", [arg]) if tape.value(arg.var) > 0.0 => Ok(TapeScalar {
-            var: tape.ln(arg.var),
-            depends_on_input: arg.depends_on_input,
-        }),
-        ("sqrt", [arg]) if tape.value(arg.var) >= 0.0 => Ok(TapeScalar {
-            var: tape.sqrt(arg.var),
-            depends_on_input: arg.depends_on_input,
-        }),
+        ("sin", [arg]) => finite_tape_scalar(
+            tape.sin(arg.var),
+            arg.depends_on_input,
+            tape,
+            "non-finite sin",
+        ),
+        ("cos", [arg]) => finite_tape_scalar(
+            tape.cos(arg.var),
+            arg.depends_on_input,
+            tape,
+            "non-finite cos",
+        ),
+        ("exp", [arg]) => finite_tape_scalar(
+            tape.exp(arg.var),
+            arg.depends_on_input,
+            tape,
+            "non-finite exp",
+        ),
+        ("ln", [arg]) if tape.value(arg.var) > 0.0 => finite_tape_scalar(
+            tape.ln(arg.var),
+            arg.depends_on_input,
+            tape,
+            "non-finite ln",
+        ),
+        ("sqrt", [arg]) if tape.value(arg.var) >= 0.0 => finite_tape_scalar(
+            tape.sqrt(arg.var),
+            arg.depends_on_input,
+            tape,
+            "non-finite sqrt",
+        ),
         _ => Err(FemmError::SensitivityUnavailable(format!(
             "unsupported operator {symbol} in exact adjoint gradient"
         ))),
@@ -263,7 +303,7 @@ fn apply_dual_pow(base: Dual<1>, exp: Dual<1>) -> FemmResult<Dual<1>> {
             "pow with non-integer exponent requires positive base".to_owned(),
         ));
     }
-    Ok((base.ln() * exp).exp())
+    finite_dual((base.ln() * exp).exp(), "non-finite pow")
 }
 
 fn dual_powi(base: Dual<1>, exponent: i32) -> FemmResult<Dual<1>> {
@@ -279,10 +319,13 @@ fn dual_powi(base: Dual<1>, exponent: i32) -> FemmResult<Dual<1>> {
         _ if base.v == 0.0 => 0.0,
         _ => f64::from(exponent) * value / base.v,
     };
-    Ok(Dual {
-        v: value,
-        d: [base.d[0] * scale],
-    })
+    finite_dual(
+        Dual {
+            v: value,
+            d: [base.d[0] * scale],
+        },
+        "non-finite integer pow",
+    )
 }
 
 fn apply_tape_pow(base: TapeScalar, exp: TapeScalar, tape: &mut Tape) -> FemmResult<TapeScalar> {
@@ -298,10 +341,12 @@ fn apply_tape_pow(base: TapeScalar, exp: TapeScalar, tape: &mut Tape) -> FemmRes
     }
     let ln_base = tape.ln(base.var);
     let scaled = tape.mul(ln_base, exp.var);
-    Ok(TapeScalar {
-        var: tape.exp(scaled),
-        depends_on_input: base.depends_on_input || exp.depends_on_input,
-    })
+    finite_tape_scalar(
+        tape.exp(scaled),
+        base.depends_on_input || exp.depends_on_input,
+        tape,
+        "non-finite pow",
+    )
 }
 
 fn tape_powi(base: TapeScalar, exponent: i32, tape: &mut Tape) -> FemmResult<TapeScalar> {
@@ -322,10 +367,7 @@ fn tape_powi(base: TapeScalar, exponent: i32, tape: &mut Tape) -> FemmResult<Tap
     } else {
         positive
     };
-    Ok(TapeScalar {
-        var,
-        depends_on_input: base.depends_on_input,
-    })
+    finite_tape_scalar(var, base.depends_on_input, tape, "non-finite integer pow")
 }
 
 fn tape_powi_nonnegative(base: Var, mut exponent: u32, tape: &mut Tape) -> Var {
@@ -346,4 +388,28 @@ fn tape_powi_nonnegative(base: Var, mut exponent: u32, tape: &mut Tape) -> Var {
 fn parse_number(text: &str) -> FemmResult<f64> {
     sim_lib_femm_core::parse_displayed_number(text)
         .ok_or_else(|| FemmError::SensitivityUnavailable(format!("bad number literal {text}")))
+}
+
+fn finite_dual(value: Dual<1>, context: &str) -> FemmResult<Dual<1>> {
+    if value.v.is_finite() && value.d.iter().all(|derivative| derivative.is_finite()) {
+        Ok(value)
+    } else {
+        Err(FemmError::SensitivityUnavailable(context.to_owned()))
+    }
+}
+
+fn finite_tape_scalar(
+    var: Var,
+    depends_on_input: bool,
+    tape: &Tape,
+    context: &str,
+) -> FemmResult<TapeScalar> {
+    if tape.value(var).is_finite() {
+        Ok(TapeScalar {
+            var,
+            depends_on_input,
+        })
+    } else {
+        Err(FemmError::SensitivityUnavailable(context.to_owned()))
+    }
 }

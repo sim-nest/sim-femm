@@ -439,25 +439,42 @@ pub fn femm_capabilities(
     values
 }
 
-/// Parse a displayed scalar, accepting a plain decimal or a `num/den` rational.
+/// Parse a finite scalar, accepting a plain decimal or a `num/den` rational.
 ///
-/// The shared text-to-`f64` rule used wherever a kernel value's display string
-/// must be read back as a scalar.
+/// The shared text-to-`f64` rule used by FEMM expression and value decoders.
+/// Malformed text, zero rational denominators, and non-finite values are
+/// rejected.
 ///
 /// # Examples
 ///
 /// ```
-/// use sim_lib_femm_core::parse_displayed_number;
+/// use sim_lib_femm_core::parse_finite_number;
 ///
-/// assert_eq!(parse_displayed_number("0.5"), Some(0.5));
-/// assert_eq!(parse_displayed_number("3/4"), Some(0.75));
-/// assert_eq!(parse_displayed_number("not-a-number"), None);
+/// assert_eq!(parse_finite_number("0.5"), Some(0.5));
+/// assert_eq!(parse_finite_number("3/4"), Some(0.75));
+/// assert_eq!(parse_finite_number("1/0"), None);
+/// assert_eq!(parse_finite_number("inf"), None);
 /// ```
+pub fn parse_finite_number(text: &str) -> Option<f64> {
+    let value = if let Some((num, den)) = text.split_once('/') {
+        let num = num.parse::<f64>().ok()?;
+        let den = den.parse::<f64>().ok()?;
+        if den == 0.0 {
+            return None;
+        }
+        num / den
+    } else {
+        text.parse::<f64>().ok()?
+    };
+    value.is_finite().then_some(value)
+}
+
+/// Parse a displayed scalar, accepting a plain decimal or a `num/den` rational.
+///
+/// This compatibility wrapper uses [`parse_finite_number`], so displayed
+/// scalars are finite-only.
 pub fn parse_displayed_number(text: &str) -> Option<f64> {
-    if let Some((num, den)) = text.split_once('/') {
-        return Some(num.parse::<f64>().ok()? / den.parse::<f64>().ok()?);
-    }
-    text.parse::<f64>().ok()
+    parse_finite_number(text)
 }
 
 /// Decode a kernel [`Value`] to `f64` via its display and [`parse_displayed_number`].
