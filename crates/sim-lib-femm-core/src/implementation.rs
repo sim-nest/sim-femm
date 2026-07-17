@@ -228,7 +228,7 @@ impl Default for FemmLimits {
 ///
 /// let identity = CsrMatrix::identity(3);
 /// assert_eq!(identity.rows(), 3);
-/// assert_eq!(identity.matvec(&[1.0, 2.0, 3.0]), vec![1.0, 2.0, 3.0]);
+/// assert_eq!(identity.matvec(&[1.0, 2.0, 3.0]).unwrap(), vec![1.0, 2.0, 3.0]);
 ///
 /// // A malformed structure is rejected at construction time.
 /// assert!(CsrMatrix::new(vec![0, 1], vec![3], vec![1.0]).is_err());
@@ -297,32 +297,64 @@ impl CsrMatrix {
                 "column index out of range".to_owned(),
             ));
         }
+        if self.vals.iter().any(|value| !value.is_finite()) {
+            return Err(FemmError::MalformedMatrix(
+                "matrix values must be finite".to_owned(),
+            ));
+        }
         Ok(())
     }
 
     /// Multiply the matrix by dense vector `x`, returning the dense result.
-    pub fn matvec(&self, x: &[f64]) -> Vec<f64> {
-        (0..self.rows())
-            .map(|row| {
-                let start = self.rowptr[row];
-                let end = self.rowptr[row + 1];
-                (start..end)
-                    .map(|idx| self.vals[idx] * x[self.colind[idx]])
-                    .sum()
-            })
-            .collect()
+    pub fn matvec(&self, x: &[f64]) -> FemmResult<Vec<f64>> {
+        self.validate()?;
+        let rows = self.rows();
+        if x.len() != rows {
+            return Err(FemmError::MalformedMatrix(format!(
+                "matvec vector length {} does not match matrix rows {rows}",
+                x.len()
+            )));
+        }
+        if x.iter().any(|value| !value.is_finite()) {
+            return Err(FemmError::MalformedMatrix(
+                "matvec vector values must be finite".to_owned(),
+            ));
+        }
+        let mut out = Vec::with_capacity(rows);
+        for row in 0..rows {
+            let start = self.rowptr[row];
+            let end = self.rowptr[row + 1];
+            let mut sum = 0.0;
+            for idx in start..end {
+                sum += self.vals[idx] * x[self.colind[idx]];
+                if !sum.is_finite() {
+                    return Err(FemmError::MalformedMatrix(
+                        "matvec produced a non-finite value".to_owned(),
+                    ));
+                }
+            }
+            out.push(sum);
+        }
+        Ok(out)
     }
 
     /// Expand the matrix into a dense row-major `Vec<Vec<f64>>`.
-    pub fn to_dense(&self) -> Vec<Vec<f64>> {
+    pub fn to_dense(&self) -> FemmResult<Vec<Vec<f64>>> {
+        self.validate()?;
         let n = self.rows();
         let mut dense = vec![vec![0.0; n]; n];
         for (row, dense_row) in dense.iter_mut().enumerate().take(n) {
             for idx in self.rowptr[row]..self.rowptr[row + 1] {
-                dense_row[self.colind[idx]] += self.vals[idx];
+                let value = dense_row[self.colind[idx]] + self.vals[idx];
+                if !value.is_finite() {
+                    return Err(FemmError::MalformedMatrix(
+                        "dense expansion produced a non-finite value".to_owned(),
+                    ));
+                }
+                dense_row[self.colind[idx]] = value;
             }
         }
-        dense
+        Ok(dense)
     }
 
     /// Compute a content [`StableId`] over the matrix structure and values.

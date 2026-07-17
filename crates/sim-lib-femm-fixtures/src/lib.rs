@@ -14,8 +14,8 @@
 
 use sim_kernel::{Factory, Symbol};
 use sim_lib_femm_core::{Formulation, LengthUnit, ParamRole, ParamSpec, PhysicsKind, StableId};
-use sim_lib_femm_geometry::{AnalyticRegion2, BlockLabel2, Geometry2, dummy_origin};
-use sim_lib_femm_material::{Material, MeshPolicy};
+use sim_lib_femm_geometry::{BlockLabel2, Geometry2, Node2, Segment2, dummy_origin};
+use sim_lib_femm_material::{Boundary, BoundaryKind, Material, MeshPolicy};
 use sim_lib_femm_mesh::FemmModel;
 
 mod support;
@@ -42,20 +42,62 @@ fn base_model(id: u64, name: &str, physics: PhysicsKind, material: Material) -> 
             role: ParamRole::Geometry,
         }],
         geometry: Geometry2 {
+            nodes: vec![
+                Node2 {
+                    xy: [num("0.0"), num("0.0")],
+                },
+                Node2 {
+                    xy: [num("1.0"), num("0.0")],
+                },
+                Node2 {
+                    xy: [num("1.0"), num("1.0")],
+                },
+                Node2 {
+                    xy: [num("0.0"), num("1.0")],
+                },
+            ],
+            segments: vec![
+                Segment2 {
+                    a: 0,
+                    b: 1,
+                    boundary: Some(Symbol::new("lower")),
+                },
+                Segment2 {
+                    a: 1,
+                    b: 2,
+                    boundary: None,
+                },
+                Segment2 {
+                    a: 2,
+                    b: 3,
+                    boundary: Some(Symbol::new("upper")),
+                },
+                Segment2 {
+                    a: 3,
+                    b: 0,
+                    boundary: None,
+                },
+            ],
             labels: vec![BlockLabel2 {
                 name: material.name.clone(),
                 at: [num("0.5"), num("0.5")],
                 material: material.name.clone(),
             }],
-            analytic: vec![AnalyticRegion2::Rect {
-                name: material.name.clone(),
-                xy: [num("0.0"), num("0.0")],
-                wh: [num("1.0"), num("1.0")],
-            }],
             ..Geometry2::default()
         },
         materials: vec![material],
-        boundaries: Vec::new(),
+        boundaries: vec![
+            Boundary {
+                name: Symbol::new("lower"),
+                kind: BoundaryKind::Dirichlet,
+                value: num("0.0"),
+            },
+            Boundary {
+                name: Symbol::new("upper"),
+                kind: BoundaryKind::Dirichlet,
+                value: num("1.0"),
+            },
+        ],
         sources: Vec::new(),
         outputs: Vec::new(),
         mesh_policy: MeshPolicy {

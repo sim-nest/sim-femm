@@ -531,7 +531,7 @@ mod tests {
             &FemmLimits::default(),
         )
         .unwrap();
-        let dense = assembled.k.to_dense();
+        let dense = assembled.k.to_dense().unwrap();
         assert!((dense[0][1] - dense[1][0]).abs() < 1.0e-12);
     }
 
@@ -557,7 +557,7 @@ mod tests {
             &FemmLimits::default(),
         )
         .unwrap();
-        let dense = assembled.k.to_dense();
+        let dense = assembled.k.to_dense().unwrap();
         assert_eq!(dense[0][0], 1.0);
         assert_eq!(dense[0][1], 0.0);
     }
@@ -797,7 +797,8 @@ mod tests {
         )
         .unwrap()
         .k
-        .to_dense();
+        .to_dense()
+        .unwrap();
         let weighted = assemble_system(
             &mut cx,
             &PoissonFront,
@@ -807,7 +808,8 @@ mod tests {
         )
         .unwrap()
         .k
-        .to_dense();
+        .to_dense()
+        .unwrap();
         let ratio = weighted[0][0] / planar[0][0];
         let expected = 2.0 * std::f64::consts::PI * (4.0 / 3.0);
         assert!((ratio - expected).abs() < 1.0e-12);
