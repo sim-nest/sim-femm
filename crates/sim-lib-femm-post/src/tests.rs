@@ -1,10 +1,13 @@
-use sim_kernel::Symbol;
+use std::sync::Arc;
+
+use sim_kernel::{Cx, DefaultFactory, EagerPolicy, ObjectEncode, Symbol};
 use sim_lib_femm_core::{FemmError, FemmLimits, Formulation, ParamSet, PhysicsKind, StableId};
 use sim_lib_femm_flow::SolveDiagnostics;
 use sim_lib_femm_mesh::FemMesh2;
 
 use crate::{
-    Excitation, FemmSolution, QuantitySpec, energy, quantity, sample_grid, sample_potential,
+    Excitation, FemmSolution, QuantitySpec, energy, quantity, sample_gradient, sample_grid,
+    sample_potential,
 };
 
 fn solution() -> FemmSolution {
@@ -32,6 +35,13 @@ fn solution() -> FemmSolution {
     }
 }
 
+fn malformed_solution() -> FemmSolution {
+    let mut solution = solution();
+    solution.mesh.tri = vec![[0, 1, 3]];
+    solution.mesh.elem_region = vec![Symbol::new("air")];
+    solution
+}
+
 #[test]
 fn linear_interpolation_is_exact() {
     let out = sample_potential(&solution(), 0.25, 0.25).unwrap();
@@ -56,6 +66,53 @@ fn grid_sampling_honors_cap() {
     )
     .unwrap_err();
     assert!(matches!(err, FemmError::BudgetExceeded(_)));
+}
+
+#[test]
+fn malformed_solution_consumer_paths_error_without_panic() {
+    let malformed = malformed_solution();
+    assert!(matches!(
+        sample_potential(&malformed, 0.25, 0.25).unwrap_err(),
+        FemmError::InvalidGeometry(_)
+    ));
+    assert!(matches!(
+        sample_gradient(&malformed, [0, 1, 3]).unwrap_err(),
+        FemmError::InvalidGeometry(_)
+    ));
+    assert!(matches!(
+        energy(&malformed).unwrap_err(),
+        FemmError::InvalidGeometry(_)
+    ));
+    assert!(matches!(
+        sample_grid(&malformed, &[0.0], &[0.0], &FemmLimits::default()).unwrap_err(),
+        FemmError::InvalidGeometry(_)
+    ));
+    assert!(matches!(
+        quantity(
+            &malformed,
+            &QuantitySpec::Energy { region: None },
+            &Excitation::none(),
+        )
+        .unwrap_err(),
+        FemmError::InvalidGeometry(_)
+    ));
+}
+
+#[test]
+fn solution_validate_rejects_value_count_mismatch() {
+    let mut malformed = solution();
+    malformed.u.pop();
+    assert!(matches!(
+        malformed.validate().unwrap_err(),
+        FemmError::InvalidGeometry(_)
+    ));
+}
+
+#[test]
+fn solution_read_construct_encoding_validates_public_value() {
+    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let malformed = malformed_solution();
+    assert!(malformed.object_encoding(&mut cx).is_err());
 }
 
 #[test]

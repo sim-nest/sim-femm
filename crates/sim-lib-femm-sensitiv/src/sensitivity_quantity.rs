@@ -12,6 +12,7 @@ pub(crate) fn quantity_derivative(
     spec: &QuantitySpec,
     excitation: &Excitation,
 ) -> FemmResult<f64> {
+    validate_diff_solution(diff)?;
     let value = match spec {
         QuantitySpec::Energy { region } | QuantitySpec::Coenergy { region } => {
             region_energy(diff, region.as_ref())?.d[0]
@@ -92,7 +93,7 @@ fn region_energy(diff: &DiffSolution, region: Option<&Symbol>) -> FemmResult<Dua
         matched = true;
         let geom = dual_geom_for_solution(diff, *tri)?;
         let measure = geom.area * axisymmetric_weight(&geom, &diff.solution.formulation)?;
-        let mean = node_mean(diff, *tri);
+        let mean = node_mean(diff, *tri)?;
         total = total + measure * mean * mean * Dual::cst(0.5);
     }
     ensure_region_match(region, matched)?;
@@ -169,7 +170,7 @@ fn sample_named_field(diff: &DiffSolution, field: &Symbol, point: [f64; 2]) -> F
 
 fn sample_potential_dual(diff: &DiffSolution, point: [f64; 2]) -> FemmResult<Dual<1>> {
     let (tri, bary) = locate_triangle(diff, point)?;
-    let values = node_values(diff, tri);
+    let values = node_values(diff, tri)?;
     Ok((0..3)
         .map(|index| bary[index] * values[index])
         .fold(Dual::cst(0.0), |acc, value| acc + value))
@@ -177,7 +178,7 @@ fn sample_potential_dual(diff: &DiffSolution, point: [f64; 2]) -> FemmResult<Dua
 
 fn sample_gradient_dual(diff: &DiffSolution, tri: [u32; 3]) -> FemmResult<[Dual<1>; 2]> {
     let geom = dual_geom_for_solution(diff, tri)?;
-    let values = node_values(diff, tri);
+    let values = node_values(diff, tri)?;
     Ok([
         geom.grad
             .iter()
@@ -193,6 +194,7 @@ fn sample_gradient_dual(diff: &DiffSolution, tri: [u32; 3]) -> FemmResult<[Dual<
 }
 
 fn locate_triangle(diff: &DiffSolution, point: [f64; 2]) -> FemmResult<([u32; 3], [Dual<1>; 3])> {
+    validate_diff_solution(diff)?;
     for tri in &diff.solution.mesh.tri {
         let geom = dual_geom_for_solution(diff, *tri)?;
         let bary = barycentric_dual(&geom, point);
@@ -229,21 +231,51 @@ fn dual_geom_for_solution(diff: &DiffSolution, tri: [u32; 3]) -> FemmResult<Dual
     )
 }
 
-fn node_values(diff: &DiffSolution, tri: [u32; 3]) -> [Dual<1>; 3] {
-    std::array::from_fn(|local| {
-        let index = tri[local] as usize;
-        Dual {
-            v: diff.solution.u[index],
-            d: [diff.du[index]],
-        }
-    })
+fn validate_diff_solution(diff: &DiffSolution) -> FemmResult<()> {
+    diff.solution.validate()?;
+    if diff.du.len() != diff.solution.u.len() {
+        return Err(FemmError::InvalidGeometry(format!(
+            "sensitivity solution has {} derivative values but {} solution values",
+            diff.du.len(),
+            diff.solution.u.len()
+        )));
+    }
+    if diff.dxy.len() != diff.solution.mesh.xy.len() {
+        return Err(FemmError::InvalidGeometry(format!(
+            "sensitivity mesh has {} derivative nodes but {} mesh nodes",
+            diff.dxy.len(),
+            diff.solution.mesh.xy.len()
+        )));
+    }
+    Ok(())
 }
 
-fn node_mean(diff: &DiffSolution, tri: [u32; 3]) -> Dual<1> {
-    node_values(diff, tri)
+fn node_values(diff: &DiffSolution, tri: [u32; 3]) -> FemmResult<[Dual<1>; 3]> {
+    let mut values = [Dual::cst(0.0); 3];
+    for local in 0..3 {
+        let index = tri[local] as usize;
+        let v = *diff.solution.u.get(index).ok_or_else(|| {
+            FemmError::InvalidGeometry(format!(
+                "triangle node {} has no solution value",
+                tri[local]
+            ))
+        })?;
+        let d = *diff.du.get(index).ok_or_else(|| {
+            FemmError::InvalidGeometry(format!(
+                "triangle node {} has no solution derivative",
+                tri[local]
+            ))
+        })?;
+        values[local] = Dual { v, d: [d] };
+    }
+    Ok(values)
+}
+
+fn node_mean(diff: &DiffSolution, tri: [u32; 3]) -> FemmResult<Dual<1>> {
+    Ok(node_values(diff, tri)?
         .into_iter()
         .fold(Dual::cst(0.0), |acc, value| acc + value)
-        / Dual::cst(3.0)
+        / Dual::cst(3.0))
 }
 
 fn region_matches(solution: &FemmSolution, index: usize, region: Option<&Symbol>) -> bool {

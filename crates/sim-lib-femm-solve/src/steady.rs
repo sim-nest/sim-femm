@@ -87,7 +87,7 @@ pub fn solve_steady(
         method,
     } = solve_dense_checked(&factor.dense, &rhs)?;
     let solve_id = StableId(model.id.0 ^ params.fingerprint(cx).0 ^ factor.matrix_fingerprint.0);
-    let solution = Arc::new(FemmSolution {
+    let solution = FemmSolution {
         id: solve_id,
         model_id: model.id,
         physics: model.physics.clone(),
@@ -111,7 +111,9 @@ pub fn solve_steady(
             ],
             diagnostics: meshed.diagnostics,
         },
-    });
+    };
+    solution.validate()?;
+    let solution = Arc::new(solution);
     let certificate = make_linear_certificate(cx, &solution)?;
     Ok(SteadySolve {
         model: model.clone(),
@@ -156,7 +158,7 @@ fn solve_nonlinear_ptc(
             });
             diagnostics.iterations = ptc_iterations(&diagnostics);
             diagnostics.diagnostics.extend(meshed.diagnostics);
-            let solution = Arc::new(FemmSolution {
+            let solution = FemmSolution {
                 id: solve_id,
                 model_id: model.id,
                 physics: model.physics.clone(),
@@ -165,7 +167,9 @@ fn solve_nonlinear_ptc(
                 mesh: meshed.mesh,
                 u,
                 diagnostics,
-            });
+            };
+            solution.validate()?;
+            let solution = Arc::new(solution);
             let certificate =
                 make_ptc_certificate(cx, &solution.diagnostics, solve_id.0, &solution.u)?;
             Ok(SteadySolve {

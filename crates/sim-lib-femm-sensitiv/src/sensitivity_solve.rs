@@ -114,6 +114,14 @@ fn assemble_derivative(
     wrt: &Symbol,
     diff_mesh: &DiffMesh,
 ) -> FemmResult<AssemblyDerivative> {
+    diff_mesh.mesh.validate()?;
+    if diff_mesh.dxy.len() != diff_mesh.mesh.xy.len() {
+        return Err(FemmError::InvalidGeometry(format!(
+            "differentiated mesh has {} derivative nodes but {} mesh nodes",
+            diff_mesh.dxy.len(),
+            diff_mesh.mesh.xy.len()
+        )));
+    }
     let n = diff_mesh.mesh.xy.len();
     let mut assembly = AssemblyDerivative::new(n);
     for (elem_index, tri) in diff_mesh.mesh.tri.iter().copied().enumerate() {
@@ -279,19 +287,37 @@ fn boundary_value(
 }
 
 pub(crate) fn dual_geom(diff_mesh: &DiffMesh, tri: [u32; 3]) -> FemmResult<DualGeom> {
-    let xy = std::array::from_fn(|local| {
+    diff_mesh.mesh.validate()?;
+    if diff_mesh.dxy.len() != diff_mesh.mesh.xy.len() {
+        return Err(FemmError::InvalidGeometry(format!(
+            "differentiated mesh has {} derivative nodes but {} mesh nodes",
+            diff_mesh.dxy.len(),
+            diff_mesh.mesh.xy.len()
+        )));
+    }
+    let mut xy = [[Dual::cst(0.0); 2]; 3];
+    for local in 0..3 {
         let index = tri[local] as usize;
-        [
+        let point = diff_mesh.mesh.xy.get(index).ok_or_else(|| {
+            FemmError::InvalidGeometry(format!("triangle node {} out of range", tri[local]))
+        })?;
+        let dpoint = diff_mesh.dxy.get(index).ok_or_else(|| {
+            FemmError::InvalidGeometry(format!(
+                "triangle node {} has no coordinate derivative",
+                tri[local]
+            ))
+        })?;
+        xy[local] = [
             Dual {
-                v: diff_mesh.mesh.xy[index][0],
-                d: [diff_mesh.dxy[index][0]],
+                v: point[0],
+                d: [dpoint[0]],
             },
             Dual {
-                v: diff_mesh.mesh.xy[index][1],
-                d: [diff_mesh.dxy[index][1]],
+                v: point[1],
+                d: [dpoint[1]],
             },
-        ]
-    });
+        ];
+    }
     let area2 = (xy[1][0] - xy[0][0]) * (xy[2][1] - xy[0][1])
         - (xy[2][0] - xy[0][0]) * (xy[1][1] - xy[0][1]);
     let area = abs_dual(area2) * Dual::cst(0.5);

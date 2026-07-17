@@ -75,6 +75,50 @@ pub struct FemMesh2 {
     pub edge_boundary: Vec<(u32, u32, Symbol)>,
 }
 
+impl FemMesh2 {
+    /// Validates mesh topology and coordinate storage before consumers index it.
+    pub fn validate(&self) -> FemmResult<()> {
+        for (node_index, point) in self.xy.iter().enumerate() {
+            if !point[0].is_finite() || !point[1].is_finite() {
+                return Err(FemmError::InvalidGeometry(format!(
+                    "mesh node {node_index} has non-finite coordinates"
+                )));
+            }
+        }
+        if self.elem_region.len() != self.tri.len() {
+            return Err(FemmError::InvalidGeometry(format!(
+                "mesh has {} elements but {} region labels",
+                self.tri.len(),
+                self.elem_region.len()
+            )));
+        }
+        for (tri_index, tri) in self.tri.iter().enumerate() {
+            for node in tri {
+                if (*node as usize) >= self.xy.len() {
+                    return Err(FemmError::InvalidGeometry(format!(
+                        "triangle {tri_index} node {node} out of range for {} mesh nodes",
+                        self.xy.len()
+                    )));
+                }
+            }
+            if tri[0] == tri[1] || tri[0] == tri[2] || tri[1] == tri[2] {
+                return Err(FemmError::InvalidGeometry(format!(
+                    "triangle {tri_index} reuses a node"
+                )));
+            }
+        }
+        for (edge_index, (a, b, _)) in self.edge_boundary.iter().enumerate() {
+            if (*a as usize) >= self.xy.len() || (*b as usize) >= self.xy.len() {
+                return Err(FemmError::InvalidGeometry(format!(
+                    "boundary edge {edge_index} references node out of range for {} mesh nodes",
+                    self.xy.len()
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
 /// A meshed model: the mesh paired with the parameters and diagnostics that
 /// produced it.
 ///
@@ -126,13 +170,7 @@ impl MeshedModel {
     /// This catches stale or hand-authored meshes before assembly can silently
     /// pick a generic region or unrelated first material.
     pub fn validate_against(&self, model: &FemmModel) -> FemmResult<()> {
-        if self.mesh.elem_region.len() != self.mesh.tri.len() {
-            return Err(FemmError::InvalidGeometry(format!(
-                "mesh has {} elements but {} region labels",
-                self.mesh.tri.len(),
-                self.mesh.elem_region.len()
-            )));
-        }
+        self.mesh.validate()?;
         for region in &self.mesh.elem_region {
             if model.material_for_region(region).is_none() {
                 return Err(FemmError::MissingMaterial(region.to_string()));
@@ -388,6 +426,48 @@ mod tests {
         )
         .unwrap_err();
         assert!(matches!(err, FemmError::MeshLimitExceeded(_)));
+    }
+
+    #[test]
+    fn mesh_validation_rejects_out_of_range_triangle_node() {
+        let mesh = FemMesh2 {
+            xy: vec![[0.0, 0.0], [1.0, 0.0]],
+            tri: vec![[0, 1, 2]],
+            elem_region: vec![Symbol::new("air")],
+            edge_boundary: Vec::new(),
+        };
+        assert!(matches!(
+            mesh.validate().unwrap_err(),
+            FemmError::InvalidGeometry(_)
+        ));
+    }
+
+    #[test]
+    fn mesh_validation_rejects_boundary_edge_node_out_of_range() {
+        let mesh = FemMesh2 {
+            xy: vec![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
+            tri: vec![[0, 1, 2]],
+            elem_region: vec![Symbol::new("air")],
+            edge_boundary: vec![(0, 3, Symbol::new("wall"))],
+        };
+        assert!(matches!(
+            mesh.validate().unwrap_err(),
+            FemmError::InvalidGeometry(_)
+        ));
+    }
+
+    #[test]
+    fn mesh_validation_rejects_non_finite_node_coordinate() {
+        let mesh = FemMesh2 {
+            xy: vec![[0.0, 0.0], [f64::NAN, 0.0], [0.0, 1.0]],
+            tri: vec![[0, 1, 2]],
+            elem_region: vec![Symbol::new("air")],
+            edge_boundary: Vec::new(),
+        };
+        assert!(matches!(
+            mesh.validate().unwrap_err(),
+            FemmError::InvalidGeometry(_)
+        ));
     }
 
     #[test]

@@ -57,10 +57,17 @@ impl ElementGeom {
     /// Computes the area and basis gradients from the three vertices. Returns
     /// [`FemmError::InvalidGeometry`] for a degenerate (zero-area) triangle.
     pub fn from_mesh(mesh: &FemMesh2, tri: [u32; 3]) -> FemmResult<Self> {
+        mesh.validate()?;
         let xy = [
-            mesh.xy[tri[0] as usize],
-            mesh.xy[tri[1] as usize],
-            mesh.xy[tri[2] as usize],
+            mesh.xy.get(tri[0] as usize).copied().ok_or_else(|| {
+                FemmError::InvalidGeometry(format!("triangle node {} out of range", tri[0]))
+            })?,
+            mesh.xy.get(tri[1] as usize).copied().ok_or_else(|| {
+                FemmError::InvalidGeometry(format!("triangle node {} out of range", tri[1]))
+            })?,
+            mesh.xy.get(tri[2] as usize).copied().ok_or_else(|| {
+                FemmError::InvalidGeometry(format!("triangle node {} out of range", tri[2]))
+            })?,
         ];
         let area2 = (xy[1][0] - xy[0][0]) * (xy[2][1] - xy[0][1])
             - (xy[2][0] - xy[0][0]) * (xy[1][1] - xy[0][1]);
@@ -208,6 +215,18 @@ mod tests {
         let err = geom
             .axisymmetric_weight(&Formulation::Axisymmetric)
             .unwrap_err();
+        assert!(matches!(err, FemmError::InvalidGeometry(_)));
+    }
+
+    #[test]
+    fn from_mesh_rejects_out_of_range_triangle_without_panic() {
+        let mesh = FemMesh2 {
+            xy: vec![[0.0, 0.0], [1.0, 0.0]],
+            tri: vec![[0, 1, 2]],
+            elem_region: vec![Symbol::new("air")],
+            edge_boundary: Vec::new(),
+        };
+        let err = ElementGeom::from_mesh(&mesh, [0, 1, 2]).unwrap_err();
         assert!(matches!(err, FemmError::InvalidGeometry(_)));
     }
 }

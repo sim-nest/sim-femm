@@ -46,6 +46,33 @@ pub struct FemmSolution {
     pub diagnostics: SolveDiagnostics,
 }
 
+impl FemmSolution {
+    /// Validates mesh/solution cardinality and finite scalar values.
+    pub fn validate(&self) -> FemmResult<()> {
+        self.mesh.validate()?;
+        if self.u.len() != self.mesh.xy.len() {
+            return Err(FemmError::InvalidGeometry(format!(
+                "solution has {} values but {} mesh nodes",
+                self.u.len(),
+                self.mesh.xy.len()
+            )));
+        }
+        for (index, value) in self.u.iter().enumerate() {
+            if !value.is_finite() {
+                return Err(FemmError::InvalidGeometry(format!(
+                    "solution value {index} is non-finite"
+                )));
+            }
+        }
+        if !self.diagnostics.final_residual.is_finite() {
+            return Err(FemmError::InvalidGeometry(
+                "solution final residual is non-finite".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 impl Object for FemmSolution {
     fn display(&self, _cx: &mut Cx) -> sim_kernel::Result<String> {
         Ok(stable_summary(
@@ -101,6 +128,7 @@ impl sim_kernel::ObjectCompat for FemmSolution {
 
 impl ObjectEncode for FemmSolution {
     fn object_encoding(&self, _cx: &mut Cx) -> sim_kernel::Result<ObjectEncoding> {
+        self.validate().map_err(sim_kernel::Error::from)?;
         Ok(ObjectEncoding::Constructor {
             class: solution_class_symbol(),
             args: solution_constructor_args(self),
@@ -300,12 +328,9 @@ impl Excitation {
 /// Locates the containing triangle and interpolates the nodal values with the
 /// barycentric basis. Returns [`FemmError::FieldOutOfDomain`] outside the mesh.
 pub fn sample_potential(solution: &FemmSolution, x: f64, y: f64) -> FemmResult<f64> {
+    solution.validate()?;
     let (tri, bary) = locate_triangle(solution, [x, y])?;
-    let values = [
-        solution.u[tri[0] as usize],
-        solution.u[tri[1] as usize],
-        solution.u[tri[2] as usize],
-    ];
+    let values = triangle_values(solution, tri)?;
     Ok((0..3).map(|index| bary[index] * values[index]).sum())
 }
 
@@ -314,12 +339,9 @@ pub fn sample_potential(solution: &FemmSolution, x: f64, y: f64) -> FemmResult<f
 /// For a P1 element the field gradient is constant; this is the building block
 /// for flux-density and field-strength quantities.
 pub fn sample_gradient(solution: &FemmSolution, tri: [u32; 3]) -> FemmResult<[f64; 2]> {
+    solution.validate()?;
     let geom = ElementGeom::from_mesh(&solution.mesh, tri)?;
-    let values = [
-        solution.u[tri[0] as usize],
-        solution.u[tri[1] as usize],
-        solution.u[tri[2] as usize],
-    ];
+    let values = triangle_values(solution, tri)?;
     Ok([
         geom.grad
             .iter()
@@ -373,14 +395,12 @@ pub fn sample_gradient(solution: &FemmSolution, tri: [u32; 3]) -> FemmResult<[f6
 /// assert!(energy(&solution).unwrap() >= 0.0);
 /// ```
 pub fn energy(solution: &FemmSolution) -> FemmResult<f64> {
+    solution.validate()?;
     let mut total = 0.0;
     for tri in &solution.mesh.tri {
         let geom = ElementGeom::from_mesh(&solution.mesh, *tri)?;
         let measure = element_measure(solution, &geom)?;
-        let mean = (solution.u[tri[0] as usize]
-            + solution.u[tri[1] as usize]
-            + solution.u[tri[2] as usize])
-            / 3.0;
+        let mean = triangle_mean(solution, *tri)?;
         total += 0.5 * measure * mean * mean;
     }
     Ok(total)
@@ -396,7 +416,11 @@ pub fn sample_grid(
     ys: &[f64],
     limits: &FemmLimits,
 ) -> FemmResult<Vec<f64>> {
-    let sample_count = xs.len() * ys.len();
+    solution.validate()?;
+    let sample_count = xs
+        .len()
+        .checked_mul(ys.len())
+        .ok_or_else(|| FemmError::BudgetExceeded("sample grid size overflows usize".to_owned()))?;
     if sample_count > limits.max_output_samples {
         return Err(FemmError::BudgetExceeded(format!(
             "samples {sample_count} > {}",
@@ -427,6 +451,7 @@ pub fn quantity(
     spec: &QuantitySpec,
     excitation: &Excitation,
 ) -> FemmResult<f64> {
+    solution.validate()?;
     match spec {
         QuantitySpec::Energy { region } | QuantitySpec::Coenergy { region } => {
             region_energy(solution, region.as_ref())
@@ -501,10 +526,7 @@ fn region_energy(solution: &FemmSolution, region: Option<&Symbol>) -> FemmResult
         }
         let geom = ElementGeom::from_mesh(&solution.mesh, *tri)?;
         let measure = element_measure(solution, &geom)?;
-        let mean = (solution.u[tri[0] as usize]
-            + solution.u[tri[1] as usize]
-            + solution.u[tri[2] as usize])
-            / 3.0;
+        let mean = triangle_mean(solution, *tri)?;
         total += 0.5 * measure * mean * mean;
     }
     if let Some(region) = region
@@ -602,6 +624,7 @@ pub fn sample_named_field(
     field: &Symbol,
     point: [f64; 2],
 ) -> FemmResult<f64> {
+    solution.validate()?;
     match field.name.as_ref() {
         "potential" | "a" | "v" => sample_potential(solution, point[0], point[1]),
         "bx" | "ex" => Ok(sample_gradient(solution, locate_triangle(solution, point)?.0)?[0]),
@@ -625,6 +648,7 @@ pub fn locate_triangle(
     solution: &FemmSolution,
     point: [f64; 2],
 ) -> FemmResult<([u32; 3], [f64; 3])> {
+    solution.validate()?;
     for tri in &solution.mesh.tri {
         let geom = ElementGeom::from_mesh(&solution.mesh, *tri)?;
         let bary = geom.barycentric(point);
@@ -636,6 +660,25 @@ pub fn locate_triangle(
         "point ({}, {})",
         point[0], point[1]
     )))
+}
+
+fn triangle_values(solution: &FemmSolution, tri: [u32; 3]) -> FemmResult<[f64; 3]> {
+    Ok([
+        *solution.u.get(tri[0] as usize).ok_or_else(|| {
+            FemmError::InvalidGeometry(format!("triangle node {} has no solution value", tri[0]))
+        })?,
+        *solution.u.get(tri[1] as usize).ok_or_else(|| {
+            FemmError::InvalidGeometry(format!("triangle node {} has no solution value", tri[1]))
+        })?,
+        *solution.u.get(tri[2] as usize).ok_or_else(|| {
+            FemmError::InvalidGeometry(format!("triangle node {} has no solution value", tri[2]))
+        })?,
+    ])
+}
+
+fn triangle_mean(solution: &FemmSolution, tri: [u32; 3]) -> FemmResult<f64> {
+    let values = triangle_values(solution, tri)?;
+    Ok((values[0] + values[1] + values[2]) / 3.0)
 }
 
 /// A reference-counted, shareable [`FemmSolution`].
