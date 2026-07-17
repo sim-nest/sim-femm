@@ -5,9 +5,9 @@
 //! parameter gradients of a model quantity, registering FEMM as a runtime
 //! differentiator.
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
-use sim_kernel::{Cx, Expr, Result as KernelResult, Symbol, Value};
+use sim_kernel::{Cx, Error, Expr, Result as KernelResult, Symbol, Value};
 use sim_lib_femm_core::{FemmResult, ParamSet};
 use sim_lib_femm_function::{FemmFuncPayload, ModelCallable, OutputQuery};
 use sim_lib_femm_material::{Boundary, BoundaryKind, Material, MeshPolicy, Source};
@@ -198,7 +198,14 @@ impl Differentiator for FemmAdjointPlugin {
 /// (one carrying a [`FemmFuncPayload`]) through the `femm-adjoint` path, routing
 /// `grad`/`diff` requests into [`adjoint_gradient`].
 pub fn register_femm_adjoint() -> KernelResult<()> {
-    register_differentiator(Arc::new(FemmAdjointPlugin))
+    static REGISTERED: OnceLock<std::result::Result<(), String>> = OnceLock::new();
+
+    REGISTERED
+        .get_or_init(|| {
+            register_differentiator(Arc::new(FemmAdjointPlugin)).map_err(|err| err.to_string())
+        })
+        .clone()
+        .map_err(Error::Eval)
 }
 
 /// Whether the excitation a derived quantity is measured against depends on

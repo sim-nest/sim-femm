@@ -4,9 +4,9 @@
 //! Defines the PTC options, the nonlinear iteration that drives a residual to
 //! convergence, and the event and diagnostic records describing the solve.
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
-use sim_kernel::{Cx, Diagnostic, Result as KernelResult, Severity, Symbol, Value};
+use sim_kernel::{Cx, Diagnostic, Error, Result as KernelResult, Severity, Symbol, Value};
 use sim_lib_femm_core::{FemmError, FemmResult, StableId};
 use sim_lib_numbers_numeric::{NumericKind, OdeOpts, OdeProblem, OdeSolver, register_ode_solver};
 
@@ -300,7 +300,12 @@ impl OdeSolver for FemmPtcPlugin {
 /// can refer to it, while the actual nonlinear march is performed by
 /// [`ptc_solve`] rather than the ODE-stepping path.
 pub fn register_femm_ptc() -> KernelResult<()> {
-    register_ode_solver(Arc::new(FemmPtcPlugin))
+    static REGISTERED: OnceLock<std::result::Result<(), String>> = OnceLock::new();
+
+    REGISTERED
+        .get_or_init(|| register_ode_solver(Arc::new(FemmPtcPlugin)).map_err(|err| err.to_string()))
+        .clone()
+        .map_err(Error::Eval)
 }
 
 /// Builds an error-severity kernel [`Diagnostic`] carrying `message`.
