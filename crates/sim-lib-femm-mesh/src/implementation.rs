@@ -92,6 +92,56 @@ pub struct MeshedModel {
     pub diagnostics: Vec<sim_kernel::Diagnostic>,
 }
 
+impl FemmModel {
+    /// Resolves a mesh region label to the material assigned to it.
+    ///
+    /// A mesh may tag an element with a material name directly, or with an
+    /// explicit block-label name whose `material` field names the material.
+    pub fn material_for_region(&self, region: &Symbol) -> Option<&Material> {
+        let material_name = self.material_name_for_region(region)?;
+        self.materials
+            .iter()
+            .find(|material| &material.name == material_name)
+    }
+
+    fn material_name_for_region(&self, region: &Symbol) -> Option<&Symbol> {
+        if let Some(material) = self
+            .materials
+            .iter()
+            .find(|material| &material.name == region)
+        {
+            return Some(&material.name);
+        }
+        self.geometry
+            .labels
+            .iter()
+            .find(|label| &label.name == region)
+            .map(|label| &label.material)
+    }
+}
+
+impl MeshedModel {
+    /// Validates that the mesh carries one material-resolvable region per element.
+    ///
+    /// This catches stale or hand-authored meshes before assembly can silently
+    /// pick a generic region or unrelated first material.
+    pub fn validate_against(&self, model: &FemmModel) -> FemmResult<()> {
+        if self.mesh.elem_region.len() != self.mesh.tri.len() {
+            return Err(FemmError::InvalidGeometry(format!(
+                "mesh has {} elements but {} region labels",
+                self.mesh.tri.len(),
+                self.mesh.elem_region.len()
+            )));
+        }
+        for region in &self.mesh.elem_region {
+            if model.material_for_region(region).is_none() {
+                return Err(FemmError::MissingMaterial(region.to_string()));
+            }
+        }
+        Ok(())
+    }
+}
+
 /// A mesher: turns a [`FemmModel`] and a [`ParamSet`] into a [`MeshedModel`].
 ///
 /// The behavior contract for discretizing a model. Implementations lower the
@@ -162,8 +212,10 @@ fn lowered_to_mesh(
         .labels
         .first()
         .map(|entry| entry.0.clone())
-        .unwrap_or_else(|| Symbol::new("region"));
-    Ok(MeshedModel {
+        .ok_or_else(|| {
+            FemmError::InvalidGeometry("lowered geometry has no material labels".to_owned())
+        })?;
+    let meshed = MeshedModel {
         model_id: model.id,
         params,
         mesh: FemMesh2 {
@@ -179,7 +231,9 @@ fn lowered_to_mesh(
                 .collect(),
         },
         diagnostics: Vec::new(),
-    })
+    };
+    meshed.validate_against(model)?;
+    Ok(meshed)
 }
 
 /// Rejects a mesh that exceeds the node or element limits.
@@ -210,7 +264,7 @@ mod tests {
 
     use sim_kernel::{DefaultFactory, EagerPolicy, Expr, Factory};
     use sim_lib_femm_core::{FemmLimits, Formulation, ParamRole};
-    use sim_lib_femm_geometry::{AnalyticRegion2, BlockLabel2, dummy_origin};
+    use sim_lib_femm_geometry::{AnalyticRegion2, BlockLabel2, Node2, dummy_origin};
     use sim_lib_femm_material::{Boundary, BoundaryKind, Material, Source};
 
     use super::*;
@@ -278,6 +332,20 @@ mod tests {
         }
     }
 
+    fn one_triangle(regions: Vec<Symbol>) -> MeshedModel {
+        MeshedModel {
+            model_id: StableId(1),
+            params: ParamSet::default(),
+            mesh: FemMesh2 {
+                xy: vec![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
+                tri: vec![[0, 1, 2]],
+                elem_region: regions,
+                edge_boundary: Vec::new(),
+            },
+            diagnostics: Vec::new(),
+        }
+    }
+
     #[test]
     fn rectangle_mesh_has_positive_area_triangles() {
         let mut cx = test_cx();
@@ -320,6 +388,55 @@ mod tests {
         )
         .unwrap_err();
         assert!(matches!(err, FemmError::MeshLimitExceeded(_)));
+    }
+
+    #[test]
+    fn meshed_model_requires_one_region_label_per_element() {
+        let err = one_triangle(Vec::new())
+            .validate_against(&base_model())
+            .unwrap_err();
+        assert!(matches!(err, FemmError::InvalidGeometry(_)));
+    }
+
+    #[test]
+    fn meshed_model_rejects_unknown_region_label() {
+        let err = one_triangle(vec![Symbol::new("missing")])
+            .validate_against(&base_model())
+            .unwrap_err();
+        assert!(matches!(err, FemmError::MissingMaterial(_)));
+    }
+
+    #[test]
+    fn block_label_name_resolves_to_declared_material() {
+        let mut model = base_model();
+        model.geometry.labels[0].name = Symbol::new("core-region");
+        one_triangle(vec![Symbol::new("core-region")])
+            .validate_against(&model)
+            .unwrap();
+    }
+
+    #[test]
+    fn deterministic_mesher_rejects_unlabeled_geometry() {
+        let mut cx = test_cx();
+        let mut model = base_model();
+        model.geometry = Geometry2 {
+            nodes: vec![
+                Node2 {
+                    xy: [num("0.0"), num("0.0")],
+                },
+                Node2 {
+                    xy: [num("1.0"), num("0.0")],
+                },
+                Node2 {
+                    xy: [num("0.0"), num("1.0")],
+                },
+            ],
+            ..Geometry2::default()
+        };
+        let err = DeterministicMesher::new()
+            .mesh(&mut cx, &model, &ParamSet::default())
+            .unwrap_err();
+        assert!(matches!(err, FemmError::InvalidGeometry(_)));
     }
 
     #[test]

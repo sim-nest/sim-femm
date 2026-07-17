@@ -1,7 +1,7 @@
 use sim_kernel::{Cx, Symbol};
 use sim_lib_femm_core::{FemmError, FemmResult, ParamSet};
 use sim_lib_femm_geometry::{AnalyticRegion2, Geometry2};
-use sim_lib_femm_mesh::{FemMesh2, FemmModel, Mesher};
+use sim_lib_femm_mesh::{FemMesh2, FemmModel, MeshedModel, Mesher};
 use sim_lib_numbers_ad::Dual;
 
 use crate::expr_eval::eval_expr_dual;
@@ -32,7 +32,9 @@ pub(crate) fn differentiated_mesh(
         .labels
         .first()
         .map(|(name, _, _)| name.clone())
-        .unwrap_or_else(|| Symbol::new("region"));
+        .ok_or_else(|| {
+            FemmError::InvalidGeometry("lowered geometry has no material labels".to_owned())
+        })?;
     let mesh = FemMesh2 {
         xy: lowered.nodes,
         tri: tri.clone(),
@@ -43,13 +45,22 @@ pub(crate) fn differentiated_mesh(
             .filter_map(|(a, b, boundary)| boundary.map(|name| (a as u32, b as u32, name)))
             .collect(),
     };
-    if predicted.mesh.tri.len() != mesh.tri.len() || predicted.mesh.xy.len() != mesh.xy.len() {
+    let meshed = MeshedModel {
+        model_id: model.id,
+        params: params.clone(),
+        mesh,
+        diagnostics: Vec::new(),
+    };
+    meshed.validate_against(model)?;
+    if predicted.mesh.tri.len() != meshed.mesh.tri.len()
+        || predicted.mesh.xy.len() != meshed.mesh.xy.len()
+    {
         return Err(FemmError::SensitivityUnavailable(
             "differentiated mesh topology mismatch".to_owned(),
         ));
     }
     Ok(DiffMesh {
-        mesh,
+        mesh: meshed.mesh,
         dxy: lowered.dxy,
     })
 }
@@ -67,6 +78,7 @@ fn lower_geometry(
     params: &ParamSet,
     wrt: &Symbol,
 ) -> FemmResult<LoweredDual> {
+    geometry.validate_supported()?;
     let mut lowered = LoweredDual {
         nodes: Vec::new(),
         dxy: Vec::new(),
@@ -167,7 +179,7 @@ impl LoweredDual {
                     ));
                 }
             }
-            AnalyticRegion2::OuterBox { .. } => {}
+            AnalyticRegion2::OuterBox { .. } => unreachable!("validated before lowering"),
         }
         Ok(())
     }
@@ -188,5 +200,38 @@ impl LoweredDual {
     fn push_dual_point(&mut self, x: Dual<1>, y: Dual<1>) {
         self.nodes.push([x.v, y.v]);
         self.dxy.push([x.d[0], y.d[0]]);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use sim_kernel::{DefaultFactory, EagerPolicy, Expr};
+
+    use super::*;
+
+    fn test_cx() -> Cx {
+        Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory))
+    }
+
+    #[test]
+    fn sensitivity_lowering_uses_geometry_supported_shape_contract() {
+        let mut cx = test_cx();
+        let geometry = Geometry2 {
+            analytic: vec![AnalyticRegion2::OuterBox {
+                name: Symbol::new("air"),
+                margin: Expr::Symbol(Symbol::new("missing")),
+                boundary: Symbol::new("open"),
+            }],
+            ..Geometry2::default()
+        };
+        let result = lower_geometry(
+            &mut cx,
+            &geometry,
+            &ParamSet::default(),
+            &Symbol::new("gap"),
+        );
+        assert!(matches!(result, Err(FemmError::InvalidGeometry(_))));
     }
 }

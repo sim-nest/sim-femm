@@ -214,7 +214,8 @@
       "rustdoc_summary": "Finite-element system assembly for the FEMM domain.",
       "target_kinds": [
         "custom-build",
-        "lib"
+        "lib",
+        "test"
       ],
       "targets": [
         {
@@ -226,6 +227,16 @@
           ],
           "name": "sim_lib_femm_assembly",
           "src": "crates/sim-lib-femm-assembly/src/lib.rs"
+        },
+        {
+          "crate_types": [
+            "bin"
+          ],
+          "kind": [
+            "test"
+          ],
+          "name": "domain_validation",
+          "src": "crates/sim-lib-femm-assembly/tests/domain_validation.rs"
         },
         {
           "crate_types": [
@@ -1540,10 +1551,10 @@
     "generated_by": "cargo run -p xtask -- simdoc",
     "generation_timestamp": "2026-07-14T23:00:40+02:00",
     "generator": "xtask repo-contract v1",
-    "git_commit": "f7cca631725405eb3d3e58794e19afd3775c3a5d",
+    "git_commit": "cd7593bb5143a4a12ef96e64eb48c957b52a1d87",
     "repo": "sim-femm",
     "schema": "sim.provenance.v1",
-    "source_commit": "f7cca631725405eb3d3e58794e19afd3775c3a5d",
+    "source_commit": "cd7593bb5143a4a12ef96e64eb48c957b52a1d87",
     "source_remote": "https://github.com/sim-nest/sim-femm",
     "validation_commands": [
       "cargo fmt --all --check",
@@ -1556,9 +1567,9 @@
       "cargo run -p xtask -- validation-matrix --check --repo .",
       "cargo run -p xtask -- crate-catalog --check --repo ."
     ],
-    "workspace_hash": "74b3d90032348238",
+    "workspace_hash": "6d549eb41f01b050",
     "workspace_hash_algorithm": "fnv1a64",
-    "workspace_hash_input_count": 132,
+    "workspace_hash_input_count": 134,
     "workspace_hash_inputs": [
       "Cargo.toml",
       "crates/sim-lib-femm-assembly/Cargo.toml",
@@ -1566,7 +1577,9 @@
       "crates/sim-lib-femm-assembly/recipes/01-basics/local-stiffness/recipe.toml",
       "crates/sim-lib-femm-assembly/recipes/book.toml",
       "crates/sim-lib-femm-assembly/src/implementation.rs",
+      "crates/sim-lib-femm-assembly/src/implementation_tests.rs",
       "crates/sim-lib-femm-assembly/src/lib.rs",
+      "crates/sim-lib-femm-assembly/tests/domain_validation.rs",
       "crates/sim-lib-femm-codec/Cargo.toml",
       "crates/sim-lib-femm-codec/build.rs",
       "crates/sim-lib-femm-codec/recipes/01-basics/solution-descriptor/recipe.toml",

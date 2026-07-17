@@ -238,7 +238,9 @@ fn nonlinear_residual_at(
             .elem_region
             .get(elem_index)
             .cloned()
-            .unwrap_or_else(|| Symbol::new("region"));
+            .ok_or_else(|| {
+                FemmError::InvalidGeometry(format!("element {elem_index} has no region label"))
+            })?;
         let mu_r = region_mu_r(cx, model, params, &region)?;
         let ids = [tri[0] as usize, tri[1] as usize, tri[2] as usize];
         let local = nonlinear_element_residual(&geom, [u[ids[0]], u[ids[1]], u[ids[2]]], mu_r);
@@ -265,10 +267,7 @@ fn region_mu_r(
     region: &Symbol,
 ) -> FemmResult<f64> {
     let material = model
-        .materials
-        .iter()
-        .find(|material| material.name == *region)
-        .or_else(|| model.materials.first())
+        .material_for_region(region)
         .ok_or_else(|| FemmError::MissingMaterial(region.to_string()))?;
     material
         .mu_r

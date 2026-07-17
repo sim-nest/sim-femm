@@ -73,6 +73,17 @@ pub enum BoundaryKind {
     Periodic,
 }
 
+impl std::fmt::Display for BoundaryKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Dirichlet => "dirichlet",
+            Self::Neumann => "neumann",
+            Self::Robin => "robin",
+            Self::Periodic => "periodic",
+        })
+    }
+}
+
 /// A named boundary condition: a [`BoundaryKind`] with a symbolic value.
 #[derive(Clone, Debug)]
 pub struct Boundary {

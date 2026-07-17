@@ -123,13 +123,12 @@ fn assemble_derivative(
             .elem_region
             .get(elem_index)
             .cloned()
-            .unwrap_or_else(|| Symbol::new("region"));
+            .ok_or_else(|| {
+                FemmError::InvalidGeometry(format!("element {elem_index} has no region label"))
+            })?;
         let material = model
-            .materials
-            .iter()
-            .find(|material| material.name == region)
+            .material_for_region(&region)
             .cloned()
-            .or_else(|| model.materials.first().cloned())
             .ok_or_else(|| FemmError::MissingMaterial(region.to_string()))?;
         let coeff = coeff_eval_dual(cx, model, params, wrt, &region, &material)?;
         let measure = elem.area * axisymmetric_weight(&elem, &model.formulation)?;
