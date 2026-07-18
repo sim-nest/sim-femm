@@ -1,9 +1,9 @@
 use sim_kernel::{Cx, Symbol};
 use sim_lib_femm_core::{FemmError, FemmLimits, FemmResult, Formulation, ParamSet, PhysicsKind};
-use sim_lib_femm_function::{ModelCallable, resolve_excitation};
 use sim_lib_femm_material::{Boundary, BoundaryKind, Material, Source};
 use sim_lib_femm_mesh::{FemMesh2, FemmModel};
 use sim_lib_femm_post::QuantitySpec;
+use sim_lib_femm_query::{ModelCallable, resolve_excitation, resolve_model_params};
 use sim_lib_femm_solve::{DenseFallbackSolver, solve_steady};
 use sim_lib_numbers_ad::Dual;
 
@@ -47,7 +47,7 @@ pub(crate) fn built_in_quantity_gradient(
     params: ParamSet,
     wrt: &[Symbol],
 ) -> FemmResult<Vec<(Symbol, f64)>> {
-    let params = resolve_params(&callable.model, params);
+    let params = resolve_model_params(&callable.model, params)?;
     let excitation = resolve_excitation(cx, &callable.model, &params, spec)?;
     wrt.iter()
         .map(|symbol| {
@@ -64,18 +64,6 @@ pub(crate) fn built_in_quantity_gradient(
             quantity_derivative(cx, &diff, spec, &excitation).map(|value| (symbol.clone(), value))
         })
         .collect()
-}
-
-fn resolve_params(model: &FemmModel, params: ParamSet) -> ParamSet {
-    let mut entries = params.entries;
-    for input in &model.inputs {
-        if entries.iter().all(|(name, _)| name != &input.name)
-            && let Some(default) = &input.default
-        {
-            entries.push((input.name.clone(), default.clone()));
-        }
-    }
-    ParamSet::new(entries)
 }
 
 fn differentiate_solution(

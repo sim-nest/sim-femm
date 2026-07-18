@@ -1,6 +1,6 @@
 {
   "generator": "xtask crate-catalog v1",
-  "package_count": 19,
+  "package_count": 20,
   "packages": [
     {
       "description": "Element residual assembly and global system construction for FEMM physics fronts.",
@@ -12,7 +12,8 @@
       "root": "crates/sim-lib-femm-assembly",
       "target_kinds": [
         "custom-build",
-        "lib"
+        "lib",
+        "test"
       ]
     },
     {
@@ -179,6 +180,19 @@
       "publish": "true",
       "readme": "crates/sim-lib-femm-prelude/README.md",
       "root": "crates/sim-lib-femm-prelude",
+      "target_kinds": [
+        "custom-build",
+        "lib"
+      ]
+    },
+    {
+      "description": "Shared FEMM model query callable substrate for function and sensitivity surfaces.",
+      "generated_readme": true,
+      "manifest": "crates/sim-lib-femm-query/Cargo.toml",
+      "name": "sim-lib-femm-query",
+      "publish": "true",
+      "readme": "crates/sim-lib-femm-query/README.md",
+      "root": "crates/sim-lib-femm-query",
       "target_kinds": [
         "custom-build",
         "lib"

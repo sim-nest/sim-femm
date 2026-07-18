@@ -6,7 +6,7 @@ Generated from Cargo metadata by `xtask crate-catalog v1`.
 
 | Package | Publish | Targets | Description |
 | --- | --- | --- | --- |
-| `sim-lib-femm-assembly` | `true` | `custom-build, lib` | Element residual assembly and global system construction for FEMM physics fronts. |
+| `sim-lib-femm-assembly` | `true` | `custom-build, lib, test` | Element residual assembly and global system construction for FEMM physics fronts. |
 | `sim-lib-femm-codec` | `true` | `custom-build, lib` | Codec descriptors and read-construct forms for FEMM model, solution, and field values. |
 | `sim-lib-femm-core` | `true` | `custom-build, lib` | Core FEMM types, stable ids, limits, errors, parameter sets, and scalar decoding. |
 | `sim-lib-femm-field` | `true` | `custom-build, lib` | Derived field projections and sampling for solved FEMM models. |
@@ -20,6 +20,7 @@ Generated from Cargo metadata by `xtask crate-catalog v1`.
 | `sim-lib-femm-physics` | `true` | `custom-build, lib` | Physics front equations for magnetostatic, harmonic, electrostatic, heat, and current FEMM models. |
 | `sim-lib-femm-post` | `true` | `custom-build, lib` | Solved-model quantities for FEMM energy, force, flux, inductance, and field samples. |
 | `sim-lib-femm-prelude` | `true` | `custom-build, lib` | One-call installer for the SIM FEMM stack and its number dependencies. |
+| `sim-lib-femm-query` | `true` | `custom-build, lib` | Shared FEMM model query callable substrate for function and sensitivity surfaces. |
 | `sim-lib-femm-sensitiv` | `true` | `custom-build, lib, test` | Exact adjoint, direct, and finite-difference sensitivities for FEMM quantities. |
 | `sim-lib-femm-solve` | `true` | `custom-build, lib` | Linear solve pipeline, certificates, and exported solve evidence for FEMM models. |
 | `sim-lib-femm-space` | `true` | `custom-build, lib` | Function-space and element-geometry helpers for FEMM meshes. |

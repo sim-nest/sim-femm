@@ -1,5 +1,5 @@
 {
-  "card_count": 20,
+  "card_count": 21,
   "cards": [
     {
       "id": "browse/catalog",
@@ -90,6 +90,12 @@
       "kind": "cookbook-recipe",
       "owner": "sim-lib-femm-prelude",
       "summary": "Default FEMM stack loading descriptors."
+    },
+    {
+      "id": "cookbook/femm-query",
+      "kind": "cookbook-recipe",
+      "owner": "sim-lib-femm-query",
+      "summary": "Shared FEMM model query callables."
     },
     {
       "id": "cookbook/femm-sensitiv",

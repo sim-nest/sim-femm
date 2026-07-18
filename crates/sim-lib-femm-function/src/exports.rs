@@ -19,6 +19,9 @@ use sim_lib_femm_fixtures::{
 };
 use sim_lib_femm_mesh::FemmModel;
 use sim_lib_femm_post::QuantitySpec;
+use sim_lib_femm_sensitiv::{
+    GradientAnswer, gradient_answer, gradient_trust_label, register_femm_adjoint,
+};
 
 use crate::model_value::{ModelValue, model_value};
 use crate::{FemmCall, FemmCallable, ModelCallable, OutputQuery, femm_as_func};
@@ -66,6 +69,7 @@ impl Lib for FemmFunctionLib {
     }
 
     fn load(&self, _cx: &mut sim_kernel::LoadCx, linker: &mut Linker<'_>) -> KernelResult<()> {
+        register_femm_adjoint()?;
         for symbol in function_symbols() {
             linker.function_value(
                 symbol.clone(),
@@ -230,9 +234,15 @@ fn call_grad(cx: &mut Cx, args: Vec<Value>) -> KernelResult<Value> {
     let query = scalar_query_from_value(cx, query)?;
     let wrt = symbol_list_from_value(cx, wrt)?;
     let params = params_from_value(cx, params)?;
-    let gradient = gradient_pairs(cx, &ModelCallable { model }, query, params, &wrt)?;
-    cx.factory().list(
-        gradient
+    let answer =
+        gradient_answer(cx, &ModelCallable { model }, query, params, &wrt).map_err(Error::from)?;
+    gradient_answer_value(cx, answer)
+}
+
+fn gradient_answer_value(cx: &mut Cx, answer: GradientAnswer) -> KernelResult<Value> {
+    let gradient = cx.factory().list(
+        answer
+            .values
             .into_iter()
             .map(|(symbol, value)| {
                 cx.factory().list(vec![
@@ -242,30 +252,14 @@ fn call_grad(cx: &mut Cx, args: Vec<Value>) -> KernelResult<Value> {
                 ])
             })
             .collect::<KernelResult<Vec<_>>>()?,
-    )
-}
-
-fn gradient_pairs(
-    cx: &mut Cx,
-    callable: &ModelCallable,
-    query: OutputQuery,
-    params: ParamSet,
-    wrt: &[Symbol],
-) -> KernelResult<Vec<(Symbol, f64)>> {
-    let mut out = Vec::new();
-    for symbol in wrt {
-        let base_value = params
-            .get(symbol)
-            .ok_or_else(|| Error::Eval(format!("unknown FEMM parameter {symbol}")))?;
-        let x = sim_lib_femm_core::value_as_f64(cx, base_value).map_err(Error::from)?;
-        let h = 1.0e-6;
-        let plus = replace_param(cx, &params, symbol, x + h)?;
-        let minus = replace_param(cx, &params, symbol, x - h)?;
-        let plus_value = eval_scalar(cx, callable, query.clone(), plus)?;
-        let minus_value = eval_scalar(cx, callable, query.clone(), minus)?;
-        out.push((symbol.clone(), (plus_value - minus_value) / (2.0 * h)));
-    }
-    Ok(out)
+    )?;
+    let trust = cx
+        .factory()
+        .string(gradient_trust_label(&answer.trust).to_owned())?;
+    cx.factory().table(vec![
+        (Symbol::new("gradient"), gradient),
+        (Symbol::new("trust"), trust),
+    ])
 }
 
 fn model_from_value(value: &Value) -> KernelResult<FemmModel> {
@@ -370,41 +364,4 @@ fn projection_from_value(cx: &mut Cx, value: &Value) -> KernelResult<Projection>
         "heat-flux-mag" => Ok(Projection::HeatFluxMag),
         other => Err(Error::Eval(format!("unknown FEMM projection {other}"))),
     }
-}
-
-fn replace_param(
-    cx: &mut Cx,
-    params: &ParamSet,
-    name: &Symbol,
-    value: f64,
-) -> KernelResult<ParamSet> {
-    let mut entries = params.entries.clone();
-    for (symbol, slot) in &mut entries {
-        if symbol == name {
-            *slot = cx
-                .factory()
-                .number_literal(Symbol::qualified("numbers", "f64"), value.to_string())?;
-        }
-    }
-    Ok(ParamSet::new(entries))
-}
-
-fn eval_scalar(
-    cx: &mut Cx,
-    callable: &ModelCallable,
-    query: OutputQuery,
-    params: ParamSet,
-) -> KernelResult<f64> {
-    let eval = callable
-        .eval(
-            cx,
-            FemmCall {
-                params,
-                query,
-                want_grad: None,
-                limits: FemmLimits::default(),
-            },
-        )
-        .map_err(Error::from)?;
-    sim_lib_femm_core::value_as_f64(cx, &eval.value).map_err(Error::from)
 }

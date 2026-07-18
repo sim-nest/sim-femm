@@ -100,6 +100,13 @@
       "summary": "Umbrella prelude that installs the full FEMM library stack."
     },
     {
+      "crate_name": "sim_lib_femm_query",
+      "group": "workspace",
+      "manifest": "crates/sim-lib-femm-query/Cargo.toml",
+      "package": "sim-lib-femm-query",
+      "summary": "Shared FEMM model-query callables and payloads."
+    },
+    {
       "crate_name": "sim_lib_femm_sensitiv",
       "group": "workspace",
       "manifest": "crates/sim-lib-femm-sensitiv/Cargo.toml",

@@ -74,6 +74,11 @@
     {
       "features": [],
       "group": "workspace",
+      "package": "sim-lib-femm-query"
+    },
+    {
+      "features": [],
+      "group": "workspace",
       "package": "sim-lib-femm-sensitiv"
     },
     {

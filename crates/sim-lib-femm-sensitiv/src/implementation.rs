@@ -9,10 +9,10 @@ use std::sync::{Arc, OnceLock};
 
 use sim_kernel::{Cx, Error, Expr, Result as KernelResult, Symbol, Value};
 use sim_lib_femm_core::{FemmResult, ParamSet};
-use sim_lib_femm_function::{FemmFuncPayload, ModelCallable, OutputQuery};
 use sim_lib_femm_material::{Boundary, BoundaryKind, Material, MeshPolicy, Source};
 use sim_lib_femm_mesh::FemmModel;
 use sim_lib_femm_post::QuantitySpec;
+use sim_lib_femm_query::{FemmFuncPayload, ModelCallable, OutputQuery, resolve_model_params};
 use sim_lib_numbers_func::Func;
 use sim_lib_numbers_numeric::{
     DiffOpts, Differentiator, NumericKind, NumericPlugin, register_differentiator,
@@ -20,6 +20,7 @@ use sim_lib_numbers_numeric::{
 
 use crate::expr_eval::{direct_expr_derivative, reverse_expr_gradient};
 use crate::sensitivity_solve::built_in_quantity_gradient;
+use crate::{gradient_answer, gradient_trust_label};
 
 /// Which differentiation route produced a sensitivity result.
 ///
@@ -62,6 +63,7 @@ pub fn gradient(
     params: ParamSet,
     wrt: &[Symbol],
 ) -> FemmResult<(Vec<(Symbol, f64)>, SensitivityPath)> {
+    let params = resolve_model_params(&callable.model, params)?;
     if matches!(query, OutputQuery::Field(_) | OutputQuery::Solution) {
         return Ok((Vec::new(), SensitivityPath::Unavailable));
     }
@@ -102,6 +104,7 @@ pub fn adjoint_gradient(
     params: ParamSet,
     wrt: &[Symbol],
 ) -> FemmResult<(Vec<(Symbol, f64)>, SensitivityPath)> {
+    let params = resolve_model_params(&callable.model, params)?;
     if matches!(query, OutputQuery::Field(_) | OutputQuery::Solution) {
         return Ok((Vec::new(), SensitivityPath::Unavailable));
     }
@@ -169,8 +172,12 @@ impl Differentiator for FemmAdjointPlugin {
         let callable = ModelCallable {
             model: payload.model.clone(),
         };
-        let params = ParamSet::new(vec![(var.clone(), point.clone())]);
-        let (gradient, path) = adjoint_gradient(
+        let params = resolve_model_params(
+            &payload.model,
+            ParamSet::new(vec![(var.clone(), point.clone())]),
+        )
+        .map_err(sim_kernel::Error::from)?;
+        let answer = gradient_answer(
             cx,
             &callable,
             payload.query.clone(),
@@ -178,12 +185,12 @@ impl Differentiator for FemmAdjointPlugin {
             std::slice::from_ref(var),
         )
         .map_err(sim_kernel::Error::from)?;
-        if path != SensitivityPath::AdjointExact {
-            return Err(sim_kernel::Error::Eval(format!(
-                "femm-adjoint could not produce an exact adjoint path: {path:?}"
-            )));
-        }
-        let derivative = gradient
+        cx.push_info(format!(
+            "femm-adjoint trust={}",
+            gradient_trust_label(&answer.trust)
+        ));
+        let derivative = answer
+            .values
             .first()
             .map(|(_, value)| *value)
             .ok_or_else(|| sim_kernel::Error::Eval("missing FEMM derivative".to_owned()))?;

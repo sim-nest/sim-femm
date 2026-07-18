@@ -22,6 +22,7 @@ mod model_value;
 pub use exports::*;
 pub use implementation::*;
 pub use model_value::*;
+pub use sim_lib_femm_query::*;
 
 /// Cookbook recipes for this lib, embedded at build time.
 pub static RECIPES: sim_cookbook::EmbeddedDir =

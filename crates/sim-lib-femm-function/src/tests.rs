@@ -10,10 +10,13 @@ use sim_lib_femm_geometry::{AnalyticRegion2, Geometry2, dummy_origin};
 use sim_lib_femm_material::MeshPolicy;
 use sim_lib_femm_mesh::FemmModel;
 use sim_lib_femm_post::QuantitySpec;
-use sim_lib_femm_solve::{GradientTrust, SolveExportRecord, certificate_claim, solve_steady};
+use sim_lib_femm_sensitiv::gradient_trust_label;
+use sim_lib_femm_solve::{SolveExportRecord, certificate_claim, solve_steady};
+use sim_lib_numbers_numeric::global_numeric_registry;
 
 use crate::{
-    FemmCall, FemmCallable, ModelCallable, OutputQuery, femm_as_func, femm_field_func, quality,
+    FemmCall, FemmCallable, FemmFunctionLib, ModelCallable, OutputQuery, femm_as_func,
+    femm_field_func, quality,
 };
 
 fn num(text: &str) -> Expr {
@@ -129,6 +132,63 @@ fn femm_as_func_still_callable_and_diffable() {
 }
 
 #[test]
+fn direct_function_load_registers_adjoint_hint() {
+    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    cx.load_lib(&FemmFunctionLib::new()).unwrap();
+    let guard = global_numeric_registry().read().unwrap();
+    assert!(guard.differentiator(&Symbol::new("femm-adjoint")).is_some());
+}
+
+#[test]
+fn femm_grad_returns_values_and_trust() {
+    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    cx.load_lib(&FemmFunctionLib::new()).unwrap();
+    let model = cx
+        .call_function(
+            &Symbol::qualified("femm", "model"),
+            sim_kernel::Args::default(),
+        )
+        .unwrap();
+    let grad = cx
+        .call_function(
+            &Symbol::qualified("femm", "grad"),
+            sim_kernel::Args::new(vec![
+                model,
+                cx.factory()
+                    .expr(Expr::Symbol(Symbol::new("gap-mm")))
+                    .unwrap(),
+                cx.factory()
+                    .list(vec![cx.factory().symbol(Symbol::new("gap-mm")).unwrap()])
+                    .unwrap(),
+                cx.factory()
+                    .list(vec![
+                        cx.factory()
+                            .list(vec![
+                                cx.factory().symbol(Symbol::new("gap-mm")).unwrap(),
+                                cx.factory()
+                                    .number_literal(
+                                        Symbol::qualified("numbers", "f64"),
+                                        "0.5".to_owned(),
+                                    )
+                                    .unwrap(),
+                            ])
+                            .unwrap(),
+                    ])
+                    .unwrap(),
+            ]),
+        )
+        .unwrap();
+    let Expr::Map(entries) = grad.object().as_expr(&mut cx).unwrap() else {
+        panic!("expected gradient answer table");
+    };
+    assert!(map_entry(&entries, "gradient").is_some());
+    assert_eq!(
+        map_entry(&entries, "trust"),
+        Some(&Expr::String("adjoint-verified".to_owned()))
+    );
+}
+
+#[test]
 fn projected_field_returns_field_domain() {
     let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
     let gap = cx
@@ -219,7 +279,10 @@ fn quality_query_returns_certificate_and_value() {
     };
     assert_eq!(gradient.len(), 1);
     assert!(gradient.iter().all(|value| value.is_finite()));
-    assert_ne!(*trust, GradientTrust::AdjointUnverified);
+    assert!(matches!(
+        gradient_trust_label(trust),
+        "adjoint-verified" | "finite-difference-only"
+    ));
     assert_eq!(answer.certificate.gradient_trust.as_ref(), Some(trust));
 
     let rebuilt = certificate_claim(&mut cx, &solve).unwrap();
@@ -230,6 +293,15 @@ fn quality_query_returns_certificate_and_value() {
         .content_id(cx.datum_store_mut())
         .unwrap();
     assert_eq!(rebuilt_id, carried_id);
+}
+
+fn map_entry<'a>(entries: &'a [(Expr, Expr)], key: &str) -> Option<&'a Expr> {
+    entries
+        .iter()
+        .find_map(|(entry_key, value)| match entry_key {
+            Expr::Symbol(symbol) if symbol == &Symbol::new(key) => Some(value),
+            _ => None,
+        })
 }
 
 #[test]

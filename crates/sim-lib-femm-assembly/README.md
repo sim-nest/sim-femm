@@ -8,7 +8,7 @@ Element residual assembly and global system construction for FEMM physics fronts
 
 - Manifest: `crates/sim-lib-femm-assembly/Cargo.toml`
 - Publish: `true`
-- Targets: `custom-build, lib`
+- Targets: `custom-build, lib, test`
 
 ## Crate Documentation
 

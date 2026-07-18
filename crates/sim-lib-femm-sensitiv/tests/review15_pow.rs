@@ -5,10 +5,10 @@ use sim_lib_femm_core::{
     FEMM_EXPR_OPERATORS, FemmResult, Formulation, LengthUnit, ParamRole, ParamSet, ParamSpec,
     PhysicsKind, StableId, eval_expr_f64, value_as_f64,
 };
-use sim_lib_femm_function::{ModelCallable, OutputQuery};
 use sim_lib_femm_geometry::{Geometry2, dummy_origin};
 use sim_lib_femm_material::MeshPolicy;
 use sim_lib_femm_post::QuantitySpec;
+use sim_lib_femm_query::{ModelCallable, OutputQuery};
 use sim_lib_femm_sensitiv::{SensitivityPath, adjoint_gradient, gradient};
 
 fn num(text: &str) -> Expr {

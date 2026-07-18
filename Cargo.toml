@@ -16,6 +16,7 @@ members = [
   "crates/sim-lib-femm-physics",
   "crates/sim-lib-femm-post",
   "crates/sim-lib-femm-prelude",
+  "crates/sim-lib-femm-query",
   "crates/sim-lib-femm-sensitiv",
   "crates/sim-lib-femm-solve",
   "crates/sim-lib-femm-space",

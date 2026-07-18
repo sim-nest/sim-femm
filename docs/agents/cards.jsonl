@@ -68,6 +68,8 @@
 {"kind":"recipe","path":"crates/sim-lib-femm-prelude/recipes/01-basics/prelude-stack/recipe.toml"}
 {"kind":"recipe","path":"crates/sim-lib-femm-prelude/recipes/01-basics/prelude-stack/setup.siml"}
 {"kind":"recipe","path":"crates/sim-lib-femm-prelude/recipes/book.toml"}
+{"kind":"recipe","path":"crates/sim-lib-femm-query/recipes/01-basics/chapter.toml"}
+{"kind":"recipe","path":"crates/sim-lib-femm-query/recipes/book.toml"}
 {"kind":"recipe","path":"crates/sim-lib-femm-sensitiv/recipes/01-basics/chapter.toml"}
 {"kind":"recipe","path":"crates/sim-lib-femm-sensitiv/recipes/01-basics/direct-gap/purpose.md"}
 {"kind":"recipe","path":"crates/sim-lib-femm-sensitiv/recipes/01-basics/direct-gap/recipe.toml"}

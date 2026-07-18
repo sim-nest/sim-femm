@@ -5,14 +5,17 @@ use sim_lib_femm_core::{
     FemmLimits, Formulation, LengthUnit, ParamRole, ParamSet, ParamSpec, PhysicsKind, StableId,
 };
 use sim_lib_femm_fixtures::gapped_ei_core_inductor;
-use sim_lib_femm_function::{ModelCallable, OutputQuery, resolve_excitation};
 use sim_lib_femm_geometry::{BlockLabel2, Geometry2, Node2, Segment2, dummy_origin};
 use sim_lib_femm_material::{Boundary, BoundaryKind, Material, MeshPolicy, Source};
 use sim_lib_femm_post::{QuantitySpec, quantity};
+use sim_lib_femm_query::{ModelCallable, OutputQuery, femm_as_func, resolve_excitation};
 use sim_lib_femm_solve::{GradientTrust, solve_steady};
 use sim_lib_numbers_numeric::{NumericNumbersLib, global_numeric_registry, numeric_diff_symbol};
 
-use crate::{SensitivityPath, adjoint_gradient, gradient, register_femm_adjoint, total_gradient};
+use crate::{
+    SensitivityPath, adjoint_gradient, gradient, gradient_answer, register_femm_adjoint,
+    total_gradient,
+};
 
 fn num(text: &str) -> Expr {
     sim_value::build::num_q(Some("numbers"), "f64", text)
@@ -181,6 +184,40 @@ fn custom_query() -> OutputQuery {
             args: vec![num("2.0"), Expr::Symbol(sim_kernel::Symbol::new("gap"))],
         },
     })
+}
+
+fn custom_query_with_default_offset() -> OutputQuery {
+    OutputQuery::Quantity(QuantitySpec::Custom {
+        name: sim_kernel::Symbol::new("q"),
+        expr: call(
+            "+",
+            vec![
+                call(
+                    "*",
+                    vec![num("2.0"), Expr::Symbol(sim_kernel::Symbol::new("gap"))],
+                ),
+                Expr::Symbol(sim_kernel::Symbol::new("offset")),
+            ],
+        ),
+    })
+}
+
+fn model_with_default_offset(cx: &mut Cx) -> ModelCallable {
+    let mut callable = model();
+    callable.model.inputs.push(ParamSpec {
+        name: sim_kernel::Symbol::new("offset"),
+        default: Some(
+            cx.factory()
+                .number_literal(
+                    sim_kernel::Symbol::qualified("numbers", "f64"),
+                    "1.5".to_owned(),
+                )
+                .unwrap(),
+        ),
+        unit: None,
+        role: ParamRole::Design,
+    });
+    callable
 }
 
 fn parametric_box_model() -> ModelCallable {
@@ -602,6 +639,38 @@ fn excitation_dependent_inductance_falls_back_to_finite_difference() {
 }
 
 #[test]
+fn gradient_answer_reports_finite_difference_trust() {
+    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut callable = parametric_box_model();
+    callable.model.sources = vec![Source::CircuitCoil {
+        name: sim_kernel::Symbol::new("plate"),
+        region: sim_kernel::Symbol::new("air"),
+        turns: num("1.0"),
+        current: Expr::Symbol(sim_kernel::Symbol::new("width")),
+    }];
+    let width = sim_kernel::Symbol::new("width");
+    let spec = QuantitySpec::Inductance {
+        circuit: sim_kernel::Symbol::new("plate"),
+    };
+    let params = width_height_params(&mut cx);
+    let answer = gradient_answer(
+        &mut cx,
+        &callable,
+        OutputQuery::Quantity(spec),
+        params,
+        std::slice::from_ref(&width),
+    )
+    .unwrap();
+    assert!(matches!(answer.trust, GradientTrust::FiniteDifferenceOnly));
+    assert!(answer.values[0].1.is_finite());
+    assert!(
+        cx.take_diagnostics()
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("trust=finite-difference-only"))
+    );
+}
+
+#[test]
 fn nonlinear_state_derivative_is_energy_only() {
     let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
     let callable = ModelCallable {
@@ -651,7 +720,7 @@ fn numeric_diff_with_femm_adjoint_uses_plugin_payload() {
     register_femm_adjoint().unwrap();
     let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
     cx.load_lib(&NumericNumbersLib::new()).unwrap();
-    let func = sim_lib_femm_function::femm_as_func(
+    let func = femm_as_func(
         model().model.clone(),
         vec![sim_kernel::Symbol::new("gap")],
         custom_query(),
@@ -680,6 +749,48 @@ fn numeric_diff_with_femm_adjoint_uses_plugin_payload() {
         )
         .unwrap();
     assert!((sim_lib_femm_core::value_as_f64(&mut cx, &out).unwrap() - 2.0).abs() < 1.0e-12);
+}
+
+#[test]
+fn numeric_diff_with_femm_adjoint_resolves_model_defaults() {
+    register_femm_adjoint().unwrap();
+    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    cx.load_lib(&NumericNumbersLib::new()).unwrap();
+    let callable = model_with_default_offset(&mut cx);
+    let func = femm_as_func(
+        callable.model,
+        vec![sim_kernel::Symbol::new("gap")],
+        custom_query_with_default_offset(),
+    );
+    let out = cx
+        .call_function(
+            &numeric_diff_symbol(),
+            Args::new(vec![
+                cx.factory().opaque(Arc::new(func)).unwrap(),
+                cx.factory().symbol(sim_kernel::Symbol::new("gap")).unwrap(),
+                cx.factory()
+                    .number_literal(
+                        sim_kernel::Symbol::qualified("numbers", "f64"),
+                        "0.5".to_owned(),
+                    )
+                    .unwrap(),
+                cx.factory()
+                    .table(vec![(
+                        sim_kernel::Symbol::new(":method"),
+                        cx.factory()
+                            .symbol(sim_kernel::Symbol::new("femm-adjoint"))
+                            .unwrap(),
+                    )])
+                    .unwrap(),
+            ]),
+        )
+        .unwrap();
+    assert!((sim_lib_femm_core::value_as_f64(&mut cx, &out).unwrap() - 2.0).abs() < 1.0e-12);
+    assert!(cx.take_diagnostics().iter().any(|diagnostic| {
+        diagnostic
+            .message
+            .contains("femm-adjoint trust=adjoint-verified")
+    }));
 }
 
 #[test]

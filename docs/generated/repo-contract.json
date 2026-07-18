@@ -1,5 +1,5 @@
 {
-  "card_count": 20,
+  "card_count": 21,
   "cards": [
     {
       "id": "browse/catalog",
@@ -92,6 +92,12 @@
       "summary": "Default FEMM stack loading descriptors."
     },
     {
+      "id": "cookbook/femm-query",
+      "kind": "cookbook-recipe",
+      "owner": "sim-lib-femm-query",
+      "summary": "Shared FEMM model query callables."
+    },
+    {
       "id": "cookbook/femm-sensitiv",
       "kind": "cookbook-recipe",
       "owner": "sim-lib-femm-sensitiv",
@@ -145,6 +151,7 @@
       "sim-lib-femm-physics",
       "sim-lib-femm-post",
       "sim-lib-femm-prelude",
+      "sim-lib-femm-query",
       "sim-lib-femm-sensitiv",
       "sim-lib-femm-solve",
       "sim-lib-femm-space",
@@ -163,7 +170,7 @@
       "reason": "numbers/field number-domain marker; reconstruct by loading the FEMM field lib"
     }
   ],
-  "package_count": 19,
+  "package_count": 20,
   "packages": [
     {
       "crate_name": "sim_lib_femm_assembly",
@@ -647,6 +654,20 @@
           "kind": "normal",
           "optional": false,
           "package": "sim-lib-femm-post",
+          "rename": null,
+          "target": null
+        },
+        {
+          "kind": "normal",
+          "optional": false,
+          "package": "sim-lib-femm-query",
+          "rename": null,
+          "target": null
+        },
+        {
+          "kind": "normal",
+          "optional": false,
+          "package": "sim-lib-femm-sensitiv",
           "rename": null,
           "target": null
         },
@@ -1163,7 +1184,7 @@
       ]
     },
     {
-      "crate_name": "sim_lib_femm_sensitiv",
+      "crate_name": "sim_lib_femm_query",
       "dependencies": [
         {
           "kind": "dev",
@@ -1182,7 +1203,7 @@
         {
           "kind": "normal",
           "optional": false,
-          "package": "sim-lib-femm-function",
+          "package": "sim-lib-femm-field",
           "rename": null,
           "target": null
         },
@@ -1211,6 +1232,101 @@
           "kind": "normal",
           "optional": false,
           "package": "sim-lib-femm-post",
+          "rename": null,
+          "target": null
+        },
+        {
+          "kind": "normal",
+          "optional": false,
+          "package": "sim-lib-femm-solve",
+          "rename": null,
+          "target": null
+        }
+      ],
+      "description": "Shared FEMM model query callable substrate for function and sensitivity surfaces.",
+      "features": [],
+      "group": "workspace",
+      "manifest": "crates/sim-lib-femm-query/Cargo.toml",
+      "name": "sim-lib-femm-query",
+      "publish": "true",
+      "root": "crates/sim-lib-femm-query",
+      "rustdoc_summary": "Shared FEMM model-query callables and payloads.",
+      "target_kinds": [
+        "custom-build",
+        "lib"
+      ],
+      "targets": [
+        {
+          "crate_types": [
+            "lib"
+          ],
+          "kind": [
+            "lib"
+          ],
+          "name": "sim_lib_femm_query",
+          "src": "crates/sim-lib-femm-query/src/lib.rs"
+        },
+        {
+          "crate_types": [
+            "bin"
+          ],
+          "kind": [
+            "custom-build"
+          ],
+          "name": "build-script-build",
+          "src": "crates/sim-lib-femm-query/build.rs"
+        }
+      ]
+    },
+    {
+      "crate_name": "sim_lib_femm_sensitiv",
+      "dependencies": [
+        {
+          "kind": "dev",
+          "optional": false,
+          "package": "sim-lib-femm-fixtures",
+          "rename": null,
+          "target": null
+        },
+        {
+          "kind": "normal",
+          "optional": false,
+          "package": "sim-lib-femm-core",
+          "rename": null,
+          "target": null
+        },
+        {
+          "kind": "normal",
+          "optional": false,
+          "package": "sim-lib-femm-geometry",
+          "rename": null,
+          "target": null
+        },
+        {
+          "kind": "normal",
+          "optional": false,
+          "package": "sim-lib-femm-material",
+          "rename": null,
+          "target": null
+        },
+        {
+          "kind": "normal",
+          "optional": false,
+          "package": "sim-lib-femm-mesh",
+          "rename": null,
+          "target": null
+        },
+        {
+          "kind": "normal",
+          "optional": false,
+          "package": "sim-lib-femm-post",
+          "rename": null,
+          "target": null
+        },
+        {
+          "kind": "normal",
+          "optional": false,
+          "package": "sim-lib-femm-query",
           "rename": null,
           "target": null
         },
@@ -1551,10 +1667,10 @@
     "generated_by": "cargo run -p xtask -- simdoc",
     "generation_timestamp": "2026-07-14T23:00:40+02:00",
     "generator": "xtask repo-contract v1",
-    "git_commit": "5000a033b8f01e230c064e70ccdbc9a7dbf0e3fe",
+    "git_commit": "6d38f31c460fcb1bfb6ba4814456e5b2207d5ee9",
     "repo": "sim-femm",
     "schema": "sim.provenance.v1",
-    "source_commit": "5000a033b8f01e230c064e70ccdbc9a7dbf0e3fe",
+    "source_commit": "6d38f31c460fcb1bfb6ba4814456e5b2207d5ee9",
     "source_remote": "https://github.com/sim-nest/sim-femm",
     "validation_commands": [
       "cargo fmt --all --check",
@@ -1567,9 +1683,9 @@
       "cargo run -p xtask -- validation-matrix --check --repo .",
       "cargo run -p xtask -- crate-catalog --check --repo ."
     ],
-    "workspace_hash": "6c00c90c2148ba08",
+    "workspace_hash": "7c1eb26f8fd04d9d",
     "workspace_hash_algorithm": "fnv1a64",
-    "workspace_hash_input_count": 134,
+    "workspace_hash_input_count": 141,
     "workspace_hash_inputs": [
       "Cargo.toml",
       "crates/sim-lib-femm-assembly/Cargo.toml",
@@ -1669,11 +1785,18 @@
       "crates/sim-lib-femm-prelude/recipes/book.toml",
       "crates/sim-lib-femm-prelude/src/lib.rs",
       "crates/sim-lib-femm-prelude/src/tests.rs",
+      "crates/sim-lib-femm-query/Cargo.toml",
+      "crates/sim-lib-femm-query/build.rs",
+      "crates/sim-lib-femm-query/recipes/book.toml",
+      "crates/sim-lib-femm-query/src/implementation.rs",
+      "crates/sim-lib-femm-query/src/lib.rs",
+      "crates/sim-lib-femm-query/src/tests.rs",
       "crates/sim-lib-femm-sensitiv/Cargo.toml",
       "crates/sim-lib-femm-sensitiv/build.rs",
       "crates/sim-lib-femm-sensitiv/recipes/01-basics/direct-gap/recipe.toml",
       "crates/sim-lib-femm-sensitiv/recipes/book.toml",
       "crates/sim-lib-femm-sensitiv/src/expr_eval.rs",
+      "crates/sim-lib-femm-sensitiv/src/gradient_answer.rs",
       "crates/sim-lib-femm-sensitiv/src/implementation.rs",
       "crates/sim-lib-femm-sensitiv/src/lib.rs",
       "crates/sim-lib-femm-sensitiv/src/nonlinear_adjoint.rs",
@@ -1707,7 +1830,7 @@
       "xtask/Cargo.toml"
     ]
   },
-  "recipe_book_count": 18,
+  "recipe_book_count": 19,
   "recipes": [
     {
       "book": "femm-assembly",
@@ -1988,6 +2111,17 @@
       ],
       "summary": "Default FEMM stack loading descriptors.",
       "title": "FEMM Prelude"
+    },
+    {
+      "book": "femm-query",
+      "book_toml": "crates/sim-lib-femm-query/recipes/book.toml",
+      "card_id": "cookbook/femm-query",
+      "group": "workspace",
+      "package": "sim-lib-femm-query",
+      "recipe_count": 0,
+      "recipes": [],
+      "summary": "Shared FEMM model query callables.",
+      "title": "FEMM Query"
     },
     {
       "book": "femm-sensitiv",

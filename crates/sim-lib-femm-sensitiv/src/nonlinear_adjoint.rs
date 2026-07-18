@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use sim_kernel::{Cx, Symbol};
 use sim_lib_femm_core::{FemmError, FemmLimits, FemmResult, ParamSet, value_as_f64};
-use sim_lib_femm_function::{ModelCallable, resolve_excitation};
 use sim_lib_femm_geometry::eval_expr_f64;
 use sim_lib_femm_material::BoundaryKind;
 use sim_lib_femm_mesh::{DeterministicMesher, FemmModel, Mesher};
 use sim_lib_femm_post::{Excitation, FemmSolution, QuantitySpec, quantity};
+use sim_lib_femm_query::{ModelCallable, resolve_excitation};
 use sim_lib_femm_solve::{DenseFallbackSolver, GradientTrust, SteadySolve, solve_steady};
 use sim_lib_femm_space::ElementGeom;
 
