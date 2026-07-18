@@ -12,7 +12,9 @@ mod implementation;
 mod points;
 
 pub use implementation::*;
-pub use points::{FEMM_EXPR_OPERATORS, decode_point2, eval_expr_f64, integer_exponent};
+pub use points::{
+    FEMM_EXPR_OPERATORS, decode_point2, eval_expr_f64, integer_exponent, normalize_femm_expr,
+};
 
 /// Cookbook recipes for this lib, embedded at build time.
 pub static RECIPES: sim_cookbook::EmbeddedDir =

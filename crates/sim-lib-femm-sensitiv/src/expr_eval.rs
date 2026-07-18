@@ -1,7 +1,7 @@
 //! Scalar expression evaluation for FEMM sensitivity paths.
 
 use sim_kernel::{Cx, Expr, Symbol};
-use sim_lib_femm_core::{FemmError, FemmResult, ParamSet, integer_exponent};
+use sim_lib_femm_core::{FemmError, FemmResult, ParamSet, integer_exponent, normalize_femm_expr};
 use sim_lib_numbers_ad::{Dual, Scalarish, Tape, Var};
 
 pub(crate) fn direct_expr_derivative(
@@ -14,6 +14,17 @@ pub(crate) fn direct_expr_derivative(
 }
 
 pub(crate) fn eval_expr_dual(
+    cx: &mut Cx,
+    expr: &Expr,
+    params: &ParamSet,
+    wrt: Option<&Symbol>,
+    coords: &[(&str, f64)],
+) -> FemmResult<Dual<1>> {
+    let expr = normalize_femm_expr(expr)?;
+    eval_canonical_expr_dual(cx, &expr, params, wrt, coords)
+}
+
+fn eval_canonical_expr_dual(
     cx: &mut Cx,
     expr: &Expr,
     params: &ParamSet,
@@ -47,7 +58,7 @@ pub(crate) fn eval_expr_dual(
             };
             let values = args
                 .iter()
-                .map(|arg| eval_expr_dual(cx, arg, params, wrt, coords))
+                .map(|arg| eval_canonical_expr_dual(cx, arg, params, wrt, coords))
                 .collect::<FemmResult<Vec<_>>>()?;
             apply_dual_op(symbol, &values)
         }
@@ -153,6 +164,18 @@ fn eval_expr_tape(
     tape: &mut Tape,
     coords: &[(&str, f64)],
 ) -> FemmResult<TapeScalar> {
+    let expr = normalize_femm_expr(expr)?;
+    eval_canonical_expr_tape(cx, &expr, params, wrt, tape, coords)
+}
+
+fn eval_canonical_expr_tape(
+    cx: &mut Cx,
+    expr: &Expr,
+    params: &ParamSet,
+    wrt: &[(Symbol, usize, Var)],
+    tape: &mut Tape,
+    coords: &[(&str, f64)],
+) -> FemmResult<TapeScalar> {
     match expr {
         Expr::Number(number) => {
             parse_number(&number.canonical).map(|value| TapeScalar::constant(tape.constant(value)))
@@ -186,7 +209,7 @@ fn eval_expr_tape(
             };
             let values = args
                 .iter()
-                .map(|arg| eval_expr_tape(cx, arg, params, wrt, tape, coords))
+                .map(|arg| eval_canonical_expr_tape(cx, arg, params, wrt, tape, coords))
                 .collect::<FemmResult<Vec<_>>>()?;
             apply_tape_op(symbol, &values, tape)
         }
@@ -411,5 +434,124 @@ fn finite_tape_scalar(
         })
     } else {
         Err(FemmError::SensitivityUnavailable(context.to_owned()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use sim_kernel::{Cx, DefaultFactory, EagerPolicy, Expr, Symbol};
+    use sim_lib_femm_core::ParamSet;
+
+    use super::*;
+
+    fn test_cx() -> Cx {
+        Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory))
+    }
+
+    fn num(text: &str) -> Expr {
+        sim_value::build::num_q(Some("numbers"), "f64", text)
+    }
+
+    fn call(operator: &str, args: Vec<Expr>) -> Expr {
+        Expr::Call {
+            operator: Box::new(Expr::Symbol(Symbol::new(operator))),
+            args,
+        }
+    }
+
+    fn infix(operator: &str, left: Expr, right: Expr) -> Expr {
+        Expr::Infix {
+            operator: Symbol::new(operator),
+            left: Box::new(left),
+            right: Box::new(right),
+        }
+    }
+
+    fn prefix(operator: &str, arg: Expr) -> Expr {
+        Expr::Prefix {
+            operator: Symbol::new(operator),
+            arg: Box::new(arg),
+        }
+    }
+
+    fn postfix(operator: &str, arg: Expr) -> Expr {
+        Expr::Postfix {
+            operator: Symbol::new(operator),
+            arg: Box::new(arg),
+        }
+    }
+
+    fn params(cx: &mut Cx, symbol: &Symbol, value: &str) -> ParamSet {
+        ParamSet::new(vec![(
+            symbol.clone(),
+            cx.factory()
+                .number_literal(Symbol::qualified("numbers", "f64"), value.to_owned())
+                .unwrap(),
+        )])
+    }
+
+    #[test]
+    fn direct_and_reverse_ad_normalize_all_expression_forms() {
+        let gap = Symbol::new("gap");
+        let cases = [
+            (call("*", vec![num("2.0"), Expr::Symbol(gap.clone())]), 2.0),
+            (infix("+", Expr::Symbol(gap.clone()), num("3.0")), 1.0),
+            (prefix("sin", Expr::Symbol(gap.clone())), 1.0),
+            (postfix("sqrt", Expr::Symbol(gap.clone())), 0.25),
+        ];
+        for (expr, expected) in cases {
+            let mut cx = test_cx();
+            let value = if expected == 0.25 { "4.0" } else { "0.0" };
+            let params = params(&mut cx, &gap, value);
+            let direct = direct_expr_derivative(&mut cx, &expr, &params, &gap).unwrap();
+            let reverse =
+                reverse_expr_gradient(&mut cx, &expr, &params, std::slice::from_ref(&gap)).unwrap();
+            assert!((direct - expected).abs() < 1.0e-12, "{expr:?}");
+            assert!((reverse[0].1 - expected).abs() < 1.0e-12, "{expr:?}");
+        }
+    }
+
+    #[test]
+    fn direct_and_reverse_ad_cover_femm_expression_operators() {
+        let gap = Symbol::new("gap");
+        let cases = [
+            (
+                call("+", vec![Expr::Symbol(gap.clone()), num("2.0")]),
+                3.0,
+                1.0,
+            ),
+            (
+                call("*", vec![num("2.0"), Expr::Symbol(gap.clone())]),
+                3.0,
+                2.0,
+            ),
+            (call("-", vec![Expr::Symbol(gap.clone())]), 3.0, -1.0),
+            (
+                call("/", vec![Expr::Symbol(gap.clone()), num("2.0")]),
+                3.0,
+                0.5,
+            ),
+            (
+                call("pow", vec![Expr::Symbol(gap.clone()), num("2.0")]),
+                3.0,
+                6.0,
+            ),
+            (call("sin", vec![Expr::Symbol(gap.clone())]), 0.0, 1.0),
+            (call("cos", vec![Expr::Symbol(gap.clone())]), 0.0, 0.0),
+            (call("exp", vec![Expr::Symbol(gap.clone())]), 0.0, 1.0),
+            (call("ln", vec![Expr::Symbol(gap.clone())]), 2.0, 0.5),
+            (call("sqrt", vec![Expr::Symbol(gap.clone())]), 4.0, 0.25),
+        ];
+        for (expr, value, expected) in cases {
+            let mut cx = test_cx();
+            let params = params(&mut cx, &gap, &value.to_string());
+            let direct = direct_expr_derivative(&mut cx, &expr, &params, &gap).unwrap();
+            let reverse =
+                reverse_expr_gradient(&mut cx, &expr, &params, std::slice::from_ref(&gap)).unwrap();
+            assert!((direct - expected).abs() < 1.0e-12, "{expr:?}");
+            assert!((reverse[0].1 - expected).abs() < 1.0e-12, "{expr:?}");
+        }
     }
 }

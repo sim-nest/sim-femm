@@ -13,7 +13,7 @@ use sim_kernel::{
     Factory, Lib, LibManifest, LibTarget, Linker, Object, RawArgs, Result as KernelResult, Symbol,
     Value, Version,
 };
-use sim_lib_femm_core::{CsrMatrix, FemmError, FemmResult};
+use sim_lib_femm_core::{CsrMatrix, FemmError, FemmResult, normalize_femm_expr};
 use sim_lib_femm_function::ModelValue;
 use sim_lib_femm_mesh::FemmModel;
 use sim_lib_femm_post::{FemmSolution, QuantitySpec};
@@ -47,20 +47,20 @@ use sim_lib_numbers_func::Func;
 ///     canonical: text.to_owned(),
 /// });
 /// // dx/dt = v, dv/dt = -4 x: a harmonic state equation, ignoring the model field.
-/// let rhs = FemmOdeRhs {
-///     model: parallel_plate_capacitor(),
-///     state_vars: vec![Symbol::new("x"), Symbol::new("v")],
-///     param_map: Vec::new(),
-///     need: Vec::new(),
-///     rhs: vec![
+/// let rhs = FemmOdeRhs::new(
+///     parallel_plate_capacitor(),
+///     vec![Symbol::new("x"), Symbol::new("v")],
+///     Vec::new(),
+///     Vec::new(),
+///     vec![
 ///         Expr::Symbol(Symbol::new("v")),
 ///         Expr::Call {
 ///             operator: Box::new(Expr::Symbol(Symbol::new("*"))),
 ///             args: vec![num("-4.0"), Expr::Symbol(Symbol::new("x"))],
 ///         },
 ///     ],
-///     tape: Arc::new(Mutex::new(SolveTape::default())),
-/// };
+///     Arc::new(Mutex::new(SolveTape::default())),
+/// ).unwrap();
 /// let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
 /// let func = cx.factory().opaque(Arc::new(rhs.as_func())).unwrap();
 /// let out = cx
@@ -118,6 +118,34 @@ pub trait DaeResidual {
 }
 
 impl FemmOdeRhs {
+    /// Builds a validated model-backed ODE right-hand side.
+    ///
+    /// The state variable list must be non-empty and duplicate-free. The right
+    /// hand side may be a scalar derivative or a vector whose arity matches the
+    /// function variables directly or after an explicit independent variable.
+    pub fn new(
+        model: FemmModel,
+        state_vars: Vec<Symbol>,
+        param_map: Vec<(Symbol, Symbol)>,
+        need: Vec<QuantitySpec>,
+        rhs: Vec<Expr>,
+        tape: Arc<Mutex<SolveTape>>,
+    ) -> FemmResult<Self> {
+        validate_ode_shape(&state_vars, &param_map, &rhs)?;
+        let rhs = rhs
+            .iter()
+            .map(normalize_femm_expr)
+            .collect::<FemmResult<Vec<_>>>()?;
+        Ok(Self {
+            model,
+            state_vars,
+            param_map,
+            need,
+            rhs,
+            tape,
+        })
+    }
+
     /// Compiles this model-backed right-hand side into a callable sim-numbers [`Func`].
     ///
     /// The resulting function takes the state vector and returns derivatives,
@@ -198,6 +226,56 @@ impl FemmOdeRhs {
             }),
         )
     }
+}
+
+fn validate_ode_shape(
+    state_vars: &[Symbol],
+    param_map: &[(Symbol, Symbol)],
+    rhs: &[Expr],
+) -> FemmResult<()> {
+    if state_vars.is_empty() {
+        return Err(invalid_ode_shape("state variable list must not be empty"));
+    }
+    if rhs.is_empty() {
+        return Err(invalid_ode_shape("RHS expression list must not be empty"));
+    }
+    let scalar_or_direct_vector = rhs.len() == 1 || rhs.len() == state_vars.len();
+    let time_plus_vector = rhs.len().checked_add(1) == Some(state_vars.len());
+    if !scalar_or_direct_vector && !time_plus_vector {
+        return Err(invalid_ode_shape(format!(
+            "RHS arity {} does not match state arity {}",
+            rhs.len(),
+            state_vars.len()
+        )));
+    }
+    let mut seen_states: Vec<&Symbol> = Vec::with_capacity(state_vars.len());
+    for state in state_vars {
+        if seen_states.contains(&state) {
+            return Err(invalid_ode_shape(format!(
+                "duplicate ODE state variable {state}"
+            )));
+        }
+        seen_states.push(state);
+    }
+    let mut seen_params: Vec<&Symbol> = Vec::with_capacity(param_map.len());
+    for (param, state) in param_map {
+        if seen_params.contains(&param) {
+            return Err(invalid_ode_shape(format!(
+                "duplicate ODE parameter-map entry for {param}"
+            )));
+        }
+        if !state_vars.iter().any(|known| known == state) {
+            return Err(invalid_ode_shape(format!(
+                "ODE parameter-map entry for {param} references unknown state {state}"
+            )));
+        }
+        seen_params.push(param);
+    }
+    Ok(())
+}
+
+fn invalid_ode_shape(message: impl Into<String>) -> FemmError {
+    FemmError::InvalidGeometry(format!("invalid ODE RHS shape: {}", message.into()))
 }
 
 fn cached_solution(
@@ -320,18 +398,19 @@ impl Callable for FemmAsOdeRhsFunction {
             .ok_or_else(|| Error::Eval("expected FEMM model value".to_owned()))?;
         let state_vars = parse_symbol_list(cx, state)?;
         let rhs = parse_expr_list(cx, rhs)?;
-        let func = FemmOdeRhs {
+        let func = FemmOdeRhs::new(
             model,
-            state_vars: state_vars.clone(),
-            param_map: state_vars
+            state_vars.clone(),
+            state_vars
                 .iter()
                 .cloned()
                 .map(|symbol| (symbol.clone(), symbol))
                 .collect(),
-            need: Vec::new(),
+            Vec::new(),
             rhs,
-            tape: Arc::new(Mutex::new(SolveTape::default())),
-        }
+            Arc::new(Mutex::new(SolveTape::default())),
+        )
+        .map_err(sim_kernel::Error::from)?
         .as_func();
         cx.factory().opaque(Arc::new(func))
     }

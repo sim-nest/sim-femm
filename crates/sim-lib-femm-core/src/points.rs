@@ -23,6 +23,36 @@ use crate::implementation::{FemmError, FemmResult, ParamSet, parse_finite_number
 pub const FEMM_EXPR_OPERATORS: &[&str] =
     &["+", "*", "-", "/", "pow", "sin", "cos", "exp", "ln", "sqrt"];
 
+/// Normalize accepted FEMM scalar expression syntax into canonical call form.
+///
+/// The FEMM scalar evaluators dispatch on `Expr::Call`, but codecs may produce
+/// infix, prefix, or postfix operator nodes for the same arithmetic surface.
+/// This helper gives every FEMM crate one normalization policy.
+pub fn normalize_femm_expr(expr: &Expr) -> FemmResult<Expr> {
+    match expr {
+        Expr::Infix {
+            operator,
+            left,
+            right,
+        } => Ok(Expr::Call {
+            operator: Box::new(Expr::Symbol(operator.clone())),
+            args: vec![normalize_femm_expr(left)?, normalize_femm_expr(right)?],
+        }),
+        Expr::Prefix { operator, arg } | Expr::Postfix { operator, arg } => Ok(Expr::Call {
+            operator: Box::new(Expr::Symbol(operator.clone())),
+            args: vec![normalize_femm_expr(arg)?],
+        }),
+        Expr::Call { operator, args } => Ok(Expr::Call {
+            operator: Box::new(normalize_femm_expr(operator)?),
+            args: args
+                .iter()
+                .map(normalize_femm_expr)
+                .collect::<FemmResult<Vec<_>>>()?,
+        }),
+        other => Ok(other.clone()),
+    }
+}
+
 /// Decode a two-element `[x y]` point literal into `[f64; 2]`.
 ///
 /// Each coordinate must be a numeric literal (plain decimal or `num/den`
@@ -69,6 +99,16 @@ pub fn eval_expr_f64(
     params: &ParamSet,
     coords: &[(&str, f64)],
 ) -> FemmResult<f64> {
+    let expr = normalize_femm_expr(expr)?;
+    eval_canonical_expr_f64(cx, &expr, params, coords)
+}
+
+fn eval_canonical_expr_f64(
+    cx: &mut Cx,
+    expr: &Expr,
+    params: &ParamSet,
+    coords: &[(&str, f64)],
+) -> FemmResult<f64> {
     match expr {
         Expr::Number(number) => parse_finite_number(&number.canonical)
             .ok_or_else(|| FemmError::InvalidGeometry(format!("bad number {}", number.canonical))),
@@ -92,7 +132,7 @@ pub fn eval_expr_f64(
             };
             let values = args
                 .iter()
-                .map(|arg| eval_expr_f64(cx, arg, params, coords))
+                .map(|arg| eval_canonical_expr_f64(cx, arg, params, coords))
                 .collect::<FemmResult<Vec<_>>>()?;
             match symbol.name.as_ref() {
                 "+" => finite_scalar(values.into_iter().sum(), "non-finite scalar addition"),
@@ -197,6 +237,28 @@ mod tests {
         }
     }
 
+    fn infix(operator: &str, left: Expr, right: Expr) -> Expr {
+        Expr::Infix {
+            operator: Symbol::new(operator),
+            left: Box::new(left),
+            right: Box::new(right),
+        }
+    }
+
+    fn prefix(operator: &str, arg: Expr) -> Expr {
+        Expr::Prefix {
+            operator: Symbol::new(operator),
+            arg: Box::new(arg),
+        }
+    }
+
+    fn postfix(operator: &str, arg: Expr) -> Expr {
+        Expr::Postfix {
+            operator: Symbol::new(operator),
+            arg: Box::new(arg),
+        }
+    }
+
     #[test]
     fn finite_number_parser_rejects_malformed_and_nonfinite_values() {
         assert_eq!(parse_finite_number("3/4"), Some(0.75));
@@ -221,5 +283,49 @@ mod tests {
             .is_err()
         );
         assert!(eval_expr_f64(&mut cx, &call("exp", vec![num("1000.0")]), &params, &[]).is_err());
+    }
+
+    #[test]
+    fn expression_normalization_canonicalizes_operator_forms() {
+        let expr = call(
+            "+",
+            vec![
+                infix("*", num("2.0"), num("3.0")),
+                prefix("-", postfix("sqrt", num("4.0"))),
+            ],
+        );
+        assert_eq!(
+            normalize_femm_expr(&expr).unwrap(),
+            call(
+                "+",
+                vec![
+                    call("*", vec![num("2.0"), num("3.0")]),
+                    call("-", vec![call("sqrt", vec![num("4.0")])]),
+                ],
+            )
+        );
+    }
+
+    #[test]
+    fn scalar_evaluation_supports_all_femm_expression_operators() {
+        let mut cx = test_cx();
+        let params = ParamSet::default();
+        let cases = [
+            (call("+", vec![num("1.0"), num("2.0"), num("3.0")]), 6.0),
+            (call("*", vec![num("2.0"), num("3.0"), num("4.0")]), 24.0),
+            (prefix("-", num("2.0")), -2.0),
+            (infix("-", num("5.0"), num("2.0")), 3.0),
+            (infix("/", num("8.0"), num("4.0")), 2.0),
+            (call("pow", vec![num("2.0"), num("3.0")]), 8.0),
+            (prefix("sin", num("0.0")), 0.0),
+            (prefix("cos", num("0.0")), 1.0),
+            (prefix("exp", num("0.0")), 1.0),
+            (prefix("ln", num("2.718281828459045")), 1.0),
+            (postfix("sqrt", num("4.0")), 2.0),
+        ];
+        for (expr, expected) in cases {
+            let value = eval_expr_f64(&mut cx, &expr, &params, &[]).unwrap();
+            assert!((value - expected).abs() < 1.0e-12, "{expr:?}");
+        }
     }
 }

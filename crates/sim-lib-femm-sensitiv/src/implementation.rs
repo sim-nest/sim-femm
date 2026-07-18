@@ -8,7 +8,7 @@
 use std::sync::{Arc, OnceLock};
 
 use sim_kernel::{Cx, Error, Expr, Result as KernelResult, Symbol, Value};
-use sim_lib_femm_core::{FemmResult, ParamSet};
+use sim_lib_femm_core::{FemmResult, ParamSet, normalize_femm_expr};
 use sim_lib_femm_material::{Boundary, BoundaryKind, Material, MeshPolicy, Source};
 use sim_lib_femm_mesh::FemmModel;
 use sim_lib_femm_post::QuantitySpec;
@@ -352,6 +352,11 @@ fn mesh_policy_uses_symbol(policy: &MeshPolicy, symbol: &Symbol) -> bool {
 }
 
 fn expr_uses_symbol(expr: &Expr, symbol: &Symbol) -> bool {
+    let expr = normalize_femm_expr(expr).unwrap_or_else(|_| expr.clone());
+    expr_uses_symbol_canonical(&expr, symbol)
+}
+
+fn expr_uses_symbol_canonical(expr: &Expr, symbol: &Symbol) -> bool {
     match expr {
         Expr::Symbol(candidate) | Expr::Local(candidate) => candidate == symbol,
         Expr::List(items) | Expr::Vector(items) | Expr::Set(items) | Expr::Block(items) => {
@@ -360,7 +365,9 @@ fn expr_uses_symbol(expr: &Expr, symbol: &Symbol) -> bool {
         Expr::Map(entries) => entries
             .iter()
             .any(|(key, value)| expr_uses_symbol(key, symbol) || expr_uses_symbol(value, symbol)),
-        Expr::Call { args, .. } => args.iter().any(|arg| expr_uses_symbol(arg, symbol)),
+        Expr::Call { args, .. } => args
+            .iter()
+            .any(|arg| expr_uses_symbol_canonical(arg, symbol)),
         Expr::Infix { left, right, .. } => {
             expr_uses_symbol(left, symbol) || expr_uses_symbol(right, symbol)
         }
@@ -379,5 +386,57 @@ fn expr_uses_symbol(expr: &Expr, symbol: &Symbol) -> bool {
         | Expr::Number(_)
         | Expr::String(_)
         | Expr::Bytes(_) => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use sim_kernel::{Expr, NumberLiteral, Symbol};
+
+    use super::expr_uses_symbol;
+
+    fn num(text: &str) -> Expr {
+        Expr::Number(NumberLiteral {
+            domain: Symbol::qualified("numbers", "f64"),
+            canonical: text.to_owned(),
+        })
+    }
+
+    fn sym(name: &str) -> Expr {
+        Expr::Symbol(Symbol::new(name))
+    }
+
+    #[test]
+    fn symbol_scanning_normalizes_femm_operator_forms() {
+        let gap = Symbol::new("gap");
+        let expressions = [
+            Expr::Infix {
+                operator: Symbol::new("+"),
+                left: Box::new(num("1.0")),
+                right: Box::new(sym("gap")),
+            },
+            Expr::Prefix {
+                operator: Symbol::new("-"),
+                arg: Box::new(sym("gap")),
+            },
+            Expr::Postfix {
+                operator: Symbol::new("sqrt"),
+                arg: Box::new(sym("gap")),
+            },
+            Expr::Call {
+                operator: Box::new(Expr::Symbol(Symbol::new("*"))),
+                args: vec![
+                    Expr::Infix {
+                        operator: Symbol::new("+"),
+                        left: Box::new(sym("gap")),
+                        right: Box::new(num("1.0")),
+                    },
+                    num("2.0"),
+                ],
+            },
+        ];
+        for expr in expressions {
+            assert!(expr_uses_symbol(&expr, &gap), "{expr:?}");
+        }
     }
 }
