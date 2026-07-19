@@ -161,15 +161,16 @@ The public API is documentation-gated: each crate's `lib.rs` denies
 `missing_docs`, so every public item, field, and variant must be documented for
 the crate to build.
 
-Each crate's runnable examples are its embedded `recipes/` tree plus the rustdoc
-`# Examples` doctests; there are no stub recipe directories.
+Each crate embeds a `recipes/` tree of modeled descriptor cookbooks. The
+compiled runnable examples are the rustdoc `# Examples` doctests; recipe files
+document stable forms and artifacts without claiming live solver execution.
 
 ## Validation
 
 Run validation from this repository:
 
 ```bash
-cargo fmt --check && cargo test --workspace && cargo clippy --workspace -- -D warnings && cargo doc --workspace --no-deps
+cargo fmt --all --check && cargo test --workspace && cargo clippy --workspace --all-targets -- -D warnings && cargo doc --workspace --no-deps
 cargo run -p xtask -- simdoc --check
 ```
 

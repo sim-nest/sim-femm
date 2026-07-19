@@ -12,7 +12,10 @@
 
 use sim_kernel::{Cx, DefaultFactory, Expr, Value};
 
-use crate::implementation::{FemmError, FemmResult, ParamSet, parse_finite_number, value_as_f64};
+use crate::{
+    FemmError, FemmResult,
+    implementation::{ParamSet, parse_finite_number, value_as_f64},
+};
 
 /// Operators accepted by FEMM scalar expression evaluators.
 ///

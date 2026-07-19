@@ -1,4 +1,5 @@
 use super::*;
+use crate::{CsrMatrix, FemmError};
 
 #[test]
 fn capabilities_list_all_physics_kinds() {
@@ -16,6 +17,14 @@ fn capabilities_list_all_physics_kinds() {
             "missing {physics}"
         );
     }
+}
+
+#[test]
+fn capabilities_describe_missing_optional_backends_as_unavailable() {
+    let capabilities = femm_capabilities(false, false, false);
+    assert!(capabilities.contains(&"femm-ptc:unavailable".to_owned()));
+    assert!(capabilities.contains(&"femm-adjoint:unavailable".to_owned()));
+    assert!(capabilities.contains(&"numbers/field:unavailable".to_owned()));
 }
 
 #[test]
