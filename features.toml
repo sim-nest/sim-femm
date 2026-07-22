@@ -1,0 +1,73 @@
+schema = "sim.features"
+
+[enforcement.audience]
+code = "strict"
+framework = "strict"
+
+[enforcement.route]
+major_entrypoints = "advisory"
+frameworks = "advisory"
+
+[[feature]]
+id = "feature/sim-femm/generated-docs"
+title = "Repository documentation surface"
+summary = "Publish generated package, card, rustdoc, and index facts for the FEMM domain crates."
+owner = "crate/xtask"
+audiences = ["code"]
+guidance = "Use this row when checking the generated documentation and index lane for FEMM."
+claims_anchors = [
+  "anchor/cli/xtask",
+  "anchor/crate/xtask",
+  "anchor/doc/generated/card-index",
+  "anchor/doc/generated/feature-map",
+  "anchor/doc/generated/provenance",
+  "anchor/doc/generated/repo-contract",
+  "anchor/doc/generated/rustdoc-index",
+  "anchor/doc/generated/sim-index-fragment",
+  "anchor/repo/sim-femm",
+]
+claims_surfaces = [
+  "cli/xtask",
+  "docs/sim-femm/generated",
+]
+
+[[feature]]
+id = "feature/sim-femm/femm-domain-stack"
+title = "FEMM domain stack"
+summary = "Collect finite-element mesh, field, material, geometry, solve, post-processing, and ODE helpers into one code-facing domain feature."
+owner = "crate/sim-lib-femm-core"
+audiences = ["code", "framework"]
+guidance = "Use this row when choosing FEMM building blocks for fields, meshes, solvers, or model codecs."
+claims_anchors = [
+  "anchor/crate/sim-lib-femm-assembly",
+  "anchor/crate/sim-lib-femm-codec",
+  "anchor/crate/sim-lib-femm-core",
+  "anchor/crate/sim-lib-femm-field",
+  "anchor/crate/sim-lib-femm-fixtures",
+  "anchor/crate/sim-lib-femm-flow",
+  "anchor/crate/sim-lib-femm-function",
+  "anchor/crate/sim-lib-femm-geometry",
+  "anchor/crate/sim-lib-femm-material",
+  "anchor/crate/sim-lib-femm-mesh",
+  "anchor/crate/sim-lib-femm-ode",
+  "anchor/crate/sim-lib-femm-physics",
+  "anchor/crate/sim-lib-femm-post",
+  "anchor/crate/sim-lib-femm-prelude",
+  "anchor/crate/sim-lib-femm-query",
+  "anchor/crate/sim-lib-femm-sensitiv",
+  "anchor/crate/sim-lib-femm-solve",
+  "anchor/crate/sim-lib-femm-space",
+  "anchor/crate/sim-lib-femm-tape",
+  "anchor/runtime-lib/sim-lib-femm-core/femm-core-lib",
+  "anchor/runtime-lib/sim-lib-femm-field/femm-field-lib",
+  "anchor/runtime-lib/sim-lib-femm-function/femm-function-lib",
+  "anchor/runtime-lib/sim-lib-femm-ode/femm-ode-lib",
+]
+
+[[route]]
+id = "route/add-femm-domain-helper"
+task = "Add a FEMM domain helper"
+audiences = ["code", "framework"]
+steps = [
+  { feature = "feature/sim-femm/femm-domain-stack", why = "The FEMM row owns mesh, field, material, solve, and ODE helpers." },
+]
