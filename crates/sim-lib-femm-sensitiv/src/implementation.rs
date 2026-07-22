@@ -392,6 +392,7 @@ fn expr_uses_symbol_canonical(expr: &Expr, symbol: &Symbol) -> bool {
 #[cfg(test)]
 mod tests {
     use sim_kernel::{Expr, NumberLiteral, Symbol};
+    use sim_value::build::sym;
 
     use super::expr_uses_symbol;
 
@@ -400,10 +401,6 @@ mod tests {
             domain: Symbol::qualified("numbers", "f64"),
             canonical: text.to_owned(),
         })
-    }
-
-    fn sym(name: &str) -> Expr {
-        Expr::Symbol(Symbol::new(name))
     }
 
     #[test]
