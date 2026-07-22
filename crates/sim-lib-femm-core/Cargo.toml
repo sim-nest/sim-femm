@@ -17,3 +17,6 @@ thiserror = "1"
 
 [build-dependencies]
 sim-cookbook = { version = "0.1.0" }
+
+[dev-dependencies]
+sim-value = { version = "0.1.0" }

@@ -218,7 +218,8 @@ fn finite_scalar(value: f64, context: &str) -> FemmResult<f64> {
 mod tests {
     use std::sync::Arc;
 
-    use sim_kernel::{Cx, DefaultFactory, EagerPolicy, Expr, NumberLiteral, Symbol};
+    use sim_kernel::{Cx, DefaultFactory, EagerPolicy, Expr, Symbol};
+    use sim_value::build::num_q;
 
     use super::*;
 
@@ -227,10 +228,16 @@ mod tests {
     }
 
     fn num(canonical: &str) -> Expr {
-        Expr::Number(NumberLiteral {
-            domain: Symbol::qualified("numbers", "f64"),
-            canonical: canonical.to_owned(),
-        })
+        num_q(Some("numbers"), "f64", canonical)
+    }
+
+    #[test]
+    fn num_uses_canonical_numbers_f64_literal() {
+        let Expr::Number(number) = num("1.25") else {
+            panic!("num should build a number literal");
+        };
+        assert_eq!(number.domain, Symbol::qualified("numbers", "f64"));
+        assert_eq!(number.canonical, "1.25");
     }
 
     fn call(operator: &str, args: Vec<Expr>) -> Expr {

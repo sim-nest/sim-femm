@@ -22,3 +22,6 @@ sim-lib-femm-solve = { version = "0.1.0", path = "../sim-lib-femm-solve" }
 
 [build-dependencies]
 sim-cookbook = { version = "0.1.0" }
+
+[dev-dependencies]
+sim-value = { version = "0.1.0" }
