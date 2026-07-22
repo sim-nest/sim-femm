@@ -169,13 +169,14 @@ impl SolveTape {
 
 #[cfg(test)]
 mod tests {
-    use sim_kernel::{DefaultFactory, EagerPolicy, Expr, NumberLiteral, Symbol};
+    use sim_kernel::{DefaultFactory, EagerPolicy, Expr, Symbol};
     use sim_lib_femm_core::{FemmError, Formulation, LengthUnit, PhysicsKind, StableId};
     use sim_lib_femm_flow::SolveDiagnostics;
     use sim_lib_femm_geometry::AnalyticRegion2;
     use sim_lib_femm_material::Material;
     use sim_lib_femm_mesh::{FemMesh2, FemmModel};
     use sim_lib_femm_post::FemmSolution;
+    use sim_value::build::num_q;
 
     use super::*;
 
@@ -184,10 +185,16 @@ mod tests {
     }
 
     fn num(text: &str) -> Expr {
-        Expr::Number(NumberLiteral {
-            domain: Symbol::qualified("numbers", "f64"),
-            canonical: text.to_owned(),
-        })
+        num_q(Some("numbers"), "f64", text)
+    }
+
+    #[test]
+    fn num_uses_canonical_numbers_f64_literal() {
+        let Expr::Number(number) = num("1.25") else {
+            panic!("num should build a number literal");
+        };
+        assert_eq!(number.domain, Symbol::qualified("numbers", "f64"));
+        assert_eq!(number.canonical, "1.25");
     }
 
     fn air_material() -> Material {

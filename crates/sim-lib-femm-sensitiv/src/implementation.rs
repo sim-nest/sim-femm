@@ -391,19 +391,22 @@ fn expr_uses_symbol_canonical(expr: &Expr, symbol: &Symbol) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use sim_kernel::{Expr, NumberLiteral, Symbol};
+    use sim_kernel::{Expr, Symbol};
+    use sim_value::build::{num_q, sym};
 
     use super::expr_uses_symbol;
 
     fn num(text: &str) -> Expr {
-        Expr::Number(NumberLiteral {
-            domain: Symbol::qualified("numbers", "f64"),
-            canonical: text.to_owned(),
-        })
+        num_q(Some("numbers"), "f64", text)
     }
 
-    fn sym(name: &str) -> Expr {
-        Expr::Symbol(Symbol::new(name))
+    #[test]
+    fn num_uses_canonical_numbers_f64_literal() {
+        let Expr::Number(number) = num("1.25") else {
+            panic!("num should build a number literal");
+        };
+        assert_eq!(number.domain, Symbol::qualified("numbers", "f64"));
+        assert_eq!(number.canonical, "1.25");
     }
 
     #[test]

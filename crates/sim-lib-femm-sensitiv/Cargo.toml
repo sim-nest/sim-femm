@@ -1,6 +1,6 @@
 [package]
 name = "sim-lib-femm-sensitiv"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2024"
 license = "MPL-2.0"
 description = "Exact adjoint, direct, and finite-difference sensitivities for FEMM quantities."

@@ -1,6 +1,6 @@
 [package]
 name = "sim-lib-femm-tape"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 license = "MPL-2.0"
 description = "Bounded solve cache keyed by FEMM model, mesh, parameter, and solver fingerprints."
@@ -22,3 +22,6 @@ sim-lib-femm-solve = { version = "0.1.0", path = "../sim-lib-femm-solve" }
 
 [build-dependencies]
 sim-cookbook = { version = "0.1.0" }
+
+[dev-dependencies]
+sim-value = { version = "0.1.0" }
