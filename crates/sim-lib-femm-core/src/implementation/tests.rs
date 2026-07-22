@@ -1,6 +1,8 @@
 use super::*;
 use crate::{CsrMatrix, FemmError};
 
+// conformance: FEMM domain stack builds finite-element core records.
+
 #[test]
 fn capabilities_list_all_physics_kinds() {
     for physics in [
