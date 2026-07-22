@@ -1,1 +1,7 @@
-(quote (femm-prelude core geometry material mesh solve post codec fixtures))
+(expr:map
+  [kind femm/prelude-stack]
+  [operation load-stack]
+  [libs [femm-core femm-geometry femm-material femm-mesh femm-solve femm-post femm-codec femm-fixtures]]
+  [default-fixture femm-fixtures/parallel-plate-capacitor]
+  [behavior modeled-descriptor]
+  [mode modeled])

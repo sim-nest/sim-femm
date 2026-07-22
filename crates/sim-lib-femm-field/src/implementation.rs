@@ -12,7 +12,7 @@ use sim_kernel::{
     LibTarget, Linker, NumberDomain, NumberLiteral, NumberValue, Object, ObjectEncode,
     ObjectEncoding, Result as KernelResult, Symbol, Value, ValuePromotionRule, Version,
 };
-use sim_lib_femm_core::{FemmResult, StableId, stable_summary};
+use sim_lib_femm_core::{FemmError, FemmResult, StableId, stable_summary};
 use sim_lib_femm_post::{FemmSolution, locate_triangle, sample_gradient, sample_potential};
 use sim_lib_numbers_core::DomainNumberValueShape;
 use sim_lib_numbers_func::Func;
@@ -163,7 +163,9 @@ impl Field {
                     let grad = sample_gradient(solution, locate_triangle(solution, [x, y])?.0)?;
                     Ok((grad[0] * grad[0] + grad[1] * grad[1]).sqrt())
                 }
-                Projection::Custom(_) => sample_potential(solution, x, y),
+                Projection::Custom(symbol) => Err(FemmError::InvalidGeometry(format!(
+                    "unsupported custom field projection {symbol}"
+                ))),
             },
             FieldExpr::AddScalar { field, scalar } => Field {
                 expr: field.clone(),
@@ -233,7 +235,8 @@ fn field_shape_symbol() -> Symbol {
 
 #[sim_citizen_derive::non_citizen(
     reason = "numbers/field number-domain marker; reconstruct by loading the FEMM field lib",
-    kind = "marker"
+    kind = "marker",
+    descriptor = "numbers/field"
 )]
 struct FieldDomain;
 
@@ -522,5 +525,16 @@ mod tests {
     fn adding_scalar_offsets_samples() {
         let field = Field::new(solution(), Projection::Potential).add_scalar(1.0);
         assert!((field.at(0.25, 0.25).unwrap() - 1.5).abs() < 1.0e-12);
+    }
+
+    #[test]
+    fn custom_projection_errors_instead_of_sampling_potential() {
+        let field = Field::new(solution(), Projection::Custom(Symbol::new("custom")));
+        let err = field.at(0.25, 0.25).unwrap_err();
+        assert!(matches!(err, FemmError::InvalidGeometry(_)));
+        assert!(
+            err.to_string()
+                .contains("unsupported custom field projection")
+        );
     }
 }

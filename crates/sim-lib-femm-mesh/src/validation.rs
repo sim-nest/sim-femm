@@ -9,7 +9,7 @@ use std::collections::BTreeSet;
 use sim_kernel::{Cx, Expr, Symbol};
 use sim_lib_femm_core::{FemmError, FemmResult, Formulation, ParamSet};
 use sim_lib_femm_geometry::{Geometry2, LoweredGeometry2};
-use sim_lib_femm_material::{Boundary, Material, MeshPolicy, Source};
+use sim_lib_femm_material::{Boundary, BoundaryKind, Material, MeshPolicy, Source};
 
 use crate::implementation::FemmModel;
 
@@ -50,6 +50,8 @@ pub fn validate_model(model: &FemmModel, params: &ParamSet) -> FemmResult<()> {
             return Err(FemmError::MissingMaterial(material.to_string()));
         }
     }
+    model.geometry.validate_supported()?;
+    validate_supported_boundaries(model)?;
     validate_source_regions(model)?;
     validate_boundary_refs(model)?;
     validate_expr_refs(model, &declared)?;
@@ -66,6 +68,18 @@ pub(crate) fn validate_lowered_geometry(
         return Err(FemmError::InvalidGeometry(
             "axisymmetric geometry crosses r = 0".to_owned(),
         ));
+    }
+    Ok(())
+}
+
+fn validate_supported_boundaries(model: &FemmModel) -> FemmResult<()> {
+    for boundary in &model.boundaries {
+        if boundary.kind != BoundaryKind::Dirichlet {
+            return Err(FemmError::InvalidGeometry(format!(
+                "unsupported boundary kind {}",
+                boundary.kind
+            )));
+        }
     }
     Ok(())
 }

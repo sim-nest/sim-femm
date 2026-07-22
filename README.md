@@ -69,8 +69,9 @@ The pipeline runs from a symbolic 2D geometry with attached materials, boundary
 conditions, and sources, through triangular meshing and function spaces, into
 per-element residuals and a global system, to linear and nonlinear solvers, and
 out as derived fields and quantities. Models are first-class callable runtime
-values, so they can be evaluated as functions of their parameters, integrated in
-time as ODE/DAE systems, and differentiated for sensitivity analysis.
+values, so they can be evaluated as functions of their parameters, integrated as
+explicit ODE right-hand sides through sim-numbers, and differentiated for
+sensitivity analysis.
 
 Every completed steady solve carries a `SolveCertificate`: a kernel `Claim` with
 the solver method, convergence flag, final residual, iteration count, solution
@@ -135,8 +136,9 @@ fallbacks.
 - `sim-lib-femm-function` -- wraps a model as a callable mapping parameters to
   quantities, fields, or solutions, registers it with the runtime, and exposes
   `quality()` for value-plus-certificate queries.
-- `sim-lib-femm-ode` -- casts a model coupled to external state as an ODE/DAE
-  right-hand side and integrates it over time.
+- `sim-lib-femm-ode` -- casts a model coupled to external state as an explicit
+  ODE right-hand side for sim-numbers solvers and defines DAE residual contracts
+  for host implicit solvers.
 - `sim-lib-femm-sensitiv` -- total gradients of supported model quantities with
   respect to registered parameters via exact adjoint, direct, or
   finite-difference paths with explicit trust labels.
@@ -159,16 +161,16 @@ The public API is documentation-gated: each crate's `lib.rs` denies
 `missing_docs`, so every public item, field, and variant must be documented for
 the crate to build.
 
-Each crate's runnable examples are its embedded `recipes/` tree plus the rustdoc
-`# Examples` doctests; there are no stub recipe directories.
+Each crate embeds a `recipes/` tree of modeled descriptor cookbooks. The
+compiled runnable examples are the rustdoc `# Examples` doctests; recipe files
+document stable forms and artifacts without claiming live solver execution.
 
 ## Validation
 
-These commands run in the generated constellation workspace so local
-constellation dependencies resolve from sibling checkouts.
+Run validation from this repository:
 
 ```bash
-cargo fmt --check && cargo test --workspace && cargo clippy --workspace -- -D warnings && cargo doc --workspace --no-deps
+cargo fmt --all --check && cargo test --workspace && cargo clippy --workspace --all-targets -- -D warnings && cargo doc --workspace --no-deps
 cargo run -p xtask -- simdoc --check
 ```
 

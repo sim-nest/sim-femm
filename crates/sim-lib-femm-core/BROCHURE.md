@@ -14,4 +14,4 @@ Before you can describe a magnet or a heated part, everyone involved has to agre
 
 ## Where it fits
 
-This is the substrate under the SIM finite-element domain. It sits below meshing, physics, solving, and reporting, giving all of them their shared types and their common vocabulary. You rarely reach for it directly; instead you feel its steadiness every time two libraries agree without friction. It is the quiet base layer that lets the rest of the stack cooperate.
+This is the substrate under the SIM finite-element domain. It sits below meshing, physics, solving, and reporting, giving all of them their shared types and their common vocabulary. You rarely reach for it directly; instead you feel its steadiness every time two libraries use the same terms. It is the quiet base layer that lets the rest of the stack cooperate.

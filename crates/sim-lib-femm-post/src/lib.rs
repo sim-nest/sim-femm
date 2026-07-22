@@ -8,7 +8,8 @@
 //! crate supplies the FEM behavior: the solved-model record and the quantity
 //! evaluations (energy, force, flux, inductance, sampled fields) read from it.
 
-mod implementation;
+mod quantity;
+mod solution;
 
 /// Cookbook recipes for this lib, embedded at build time.
 pub static RECIPES: sim_cookbook::EmbeddedDir =
@@ -17,4 +18,5 @@ pub static RECIPES: sim_cookbook::EmbeddedDir =
 #[cfg(test)]
 mod tests;
 
-pub use implementation::*;
+pub use quantity::*;
+pub use solution::*;

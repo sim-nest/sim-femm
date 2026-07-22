@@ -1,8 +1,8 @@
 #![forbid(unsafe_code)]
-//! Core FEMM substrate: ids, vocabulary, errors, parameters, and matrices.
+//! Core FEMM substrate: ids, vocabulary, parameters, numeric helpers, and library wiring.
 //!
 //! Defines the stable ids, physics/formulation/unit vocabulary, parameter
-//! specs and sets, limits, the sparse matrix type, and the error/result types
+//! specs and sets, limits, scalar decoding helpers, and runtime registration
 //! shared by every other FEMM crate.
 
 use std::{
@@ -18,7 +18,8 @@ use sim_kernel::{
     LibManifest, LibTarget, Linker, Object, RawArgs, Result as KernelResult, Symbol, Value,
     Version,
 };
-use thiserror::Error;
+
+use crate::{FemmError, FemmResult};
 
 /// Stable 64-bit identity derived by hashing a value's content.
 ///
@@ -216,190 +217,11 @@ impl Default for FemmLimits {
     }
 }
 
-/// A square sparse matrix in compressed-sparse-row (CSR) form.
-///
-/// The shared assembled-system representation for FEMM linear solves; carries
-/// `f64` entries and validates its own structural invariants.
-///
-/// # Examples
-///
-/// ```
-/// use sim_lib_femm_core::CsrMatrix;
-///
-/// let identity = CsrMatrix::identity(3);
-/// assert_eq!(identity.rows(), 3);
-/// assert_eq!(identity.matvec(&[1.0, 2.0, 3.0]), vec![1.0, 2.0, 3.0]);
-///
-/// // A malformed structure is rejected at construction time.
-/// assert!(CsrMatrix::new(vec![0, 1], vec![3], vec![1.0]).is_err());
-/// ```
-#[derive(Clone, Debug, PartialEq)]
-pub struct CsrMatrix {
-    /// Row pointers of length `rows + 1`, starting at zero and monotone.
-    pub rowptr: Vec<usize>,
-    /// Column index for each stored nonzero.
-    pub colind: Vec<usize>,
-    /// Value for each stored nonzero, parallel to [`Self::colind`].
-    pub vals: Vec<f64>,
-}
-
-impl CsrMatrix {
-    /// Build a CSR matrix from raw arrays, validating its structure.
-    ///
-    /// Returns [`FemmError::MalformedMatrix`] if the arrays are inconsistent.
-    pub fn new(rowptr: Vec<usize>, colind: Vec<usize>, vals: Vec<f64>) -> FemmResult<Self> {
-        let matrix = Self {
-            rowptr,
-            colind,
-            vals,
-        };
-        matrix.validate()?;
-        Ok(matrix)
-    }
-
-    /// Construct the `n` by `n` identity matrix in CSR form.
-    pub fn identity(n: usize) -> Self {
-        Self {
-            rowptr: (0..=n).collect(),
-            colind: (0..n).collect(),
-            vals: vec![1.0; n],
-        }
-    }
-
-    /// Number of rows (equivalently columns) in the matrix.
-    pub fn rows(&self) -> usize {
-        self.rowptr.len().saturating_sub(1)
-    }
-
-    /// Check the CSR structural invariants, returning [`FemmError::MalformedMatrix`] on failure.
-    pub fn validate(&self) -> FemmResult<()> {
-        if self.rowptr.is_empty() || self.rowptr[0] != 0 {
-            return Err(FemmError::MalformedMatrix(
-                "rowptr must start at zero".to_owned(),
-            ));
-        }
-        if self.rowptr.windows(2).any(|w| w[0] > w[1]) {
-            return Err(FemmError::MalformedMatrix(
-                "rowptr must be monotone".to_owned(),
-            ));
-        }
-        let Some(last) = self.rowptr.last().copied() else {
-            return Err(FemmError::MalformedMatrix("missing rowptr".to_owned()));
-        };
-        if last != self.colind.len() || last != self.vals.len() {
-            return Err(FemmError::MalformedMatrix(
-                "rowptr tail must equal nnz".to_owned(),
-            ));
-        }
-        let rows = self.rows();
-        if self.colind.iter().any(|&index| index >= rows) {
-            return Err(FemmError::MalformedMatrix(
-                "column index out of range".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-
-    /// Multiply the matrix by dense vector `x`, returning the dense result.
-    pub fn matvec(&self, x: &[f64]) -> Vec<f64> {
-        (0..self.rows())
-            .map(|row| {
-                let start = self.rowptr[row];
-                let end = self.rowptr[row + 1];
-                (start..end)
-                    .map(|idx| self.vals[idx] * x[self.colind[idx]])
-                    .sum()
-            })
-            .collect()
-    }
-
-    /// Expand the matrix into a dense row-major `Vec<Vec<f64>>`.
-    pub fn to_dense(&self) -> Vec<Vec<f64>> {
-        let n = self.rows();
-        let mut dense = vec![vec![0.0; n]; n];
-        for (row, dense_row) in dense.iter_mut().enumerate().take(n) {
-            for idx in self.rowptr[row]..self.rowptr[row + 1] {
-                dense_row[self.colind[idx]] += self.vals[idx];
-            }
-        }
-        dense
-    }
-
-    /// Compute a content [`StableId`] over the matrix structure and values.
-    pub fn fingerprint(&self) -> StableId {
-        let text = format!("{:?}{:?}{:?}", self.rowptr, self.colind, self.vals);
-        StableId::from_hashable(&text)
-    }
-}
-
-/// The error domain shared by every FEMM crate.
-///
-/// Each variant maps to a stable `femm` error category; [`From`] converts it
-/// into a kernel [`sim_kernel::Error`] for protocol-level reporting.
-#[derive(Debug, Error)]
-pub enum FemmError {
-    /// A referenced parameter is not bound in the active [`ParamSet`].
-    #[error("UnknownFemmParameter: {0}")]
-    UnknownFemmParameter(String),
-    /// A required material was not found.
-    #[error("MissingMaterial: {0}")]
-    MissingMaterial(String),
-    /// The requested [`PhysicsKind`] is not supported.
-    #[error("UnsupportedPhysics: {0}")]
-    UnsupportedPhysics(String),
-    /// A mesh exceeded a [`FemmLimits`] ceiling.
-    #[error("MeshLimitExceeded: {0}")]
-    MeshLimitExceeded(String),
-    /// A solver failed to reach convergence.
-    #[error("SolveDidNotConverge: {0}")]
-    SolveDidNotConverge(String),
-    /// Sensitivity (adjoint) data was requested but is unavailable.
-    #[error("SensitivityUnavailable: {0}")]
-    SensitivityUnavailable(String),
-    /// A [`FemmLimits`] resource budget was exhausted.
-    #[error("BudgetExceeded: {0}")]
-    BudgetExceeded(String),
-    /// Geometry input was malformed or could not be interpreted.
-    #[error("InvalidGeometry: {0}")]
-    InvalidGeometry(String),
-    /// A field query fell outside the model's valid domain.
-    #[error("FieldOutOfDomain: {0}")]
-    FieldOutOfDomain(String),
-    /// A [`CsrMatrix`] violated its structural invariants.
-    #[error("MalformedMatrix: {0}")]
-    MalformedMatrix(String),
-}
-
-impl From<FemmError> for sim_kernel::Error {
-    fn from(error: FemmError) -> Self {
-        let category = match &error {
-            FemmError::UnknownFemmParameter(_) => "unknown-parameter",
-            FemmError::MissingMaterial(_) => "missing-material",
-            FemmError::UnsupportedPhysics(_) => "unsupported-physics",
-            FemmError::MeshLimitExceeded(_) => "mesh-limit",
-            FemmError::SolveDidNotConverge(_) => "solve-did-not-converge",
-            FemmError::SensitivityUnavailable(_) => "sensitivity-unavailable",
-            FemmError::BudgetExceeded(_) => "budget-exceeded",
-            FemmError::InvalidGeometry(_) => "invalid-geometry",
-            FemmError::FieldOutOfDomain(_) => "field-out-of-domain",
-            FemmError::MalformedMatrix(_) => "malformed-matrix",
-        };
-        sim_kernel::Error::domain_error(
-            Symbol::new("femm"),
-            Symbol::qualified("femm", category),
-            error.to_string(),
-        )
-    }
-}
-
-/// Result type for FEMM operations, carrying a [`FemmError`] on failure.
-pub type FemmResult<T> = std::result::Result<T, FemmError>;
-
 /// List the capability tokens this FEMM build advertises.
 ///
-/// Combines the always-present [`PhysicsKind`] names with feature flags whose
-/// `installed`/`planned` suffix reflects which optional sim-numbers backends
-/// (field domain, fixed-step ODE, adjoint differentiator) are registered.
+/// Combines the always-present [`PhysicsKind`] names with availability flags
+/// for optional sim-numbers backends: field domain, fixed-step ODE, and adjoint
+/// differentiator.
 pub fn femm_capabilities(
     installed_field: bool,
     installed_ptc: bool,
@@ -416,7 +238,7 @@ pub fn femm_capabilities(
         if installed_ptc {
             "femm-ptc:installed"
         } else {
-            "femm-ptc:planned"
+            "femm-ptc:unavailable"
         }
         .to_owned(),
     );
@@ -424,7 +246,7 @@ pub fn femm_capabilities(
         if installed_adjoint {
             "femm-adjoint:installed"
         } else {
-            "femm-adjoint:planned"
+            "femm-adjoint:unavailable"
         }
         .to_owned(),
     );
@@ -432,32 +254,49 @@ pub fn femm_capabilities(
         if installed_field {
             "numbers/field:installed"
         } else {
-            "numbers/field:planned"
+            "numbers/field:unavailable"
         }
         .to_owned(),
     );
     values
 }
 
-/// Parse a displayed scalar, accepting a plain decimal or a `num/den` rational.
+/// Parse a finite scalar, accepting a plain decimal or a `num/den` rational.
 ///
-/// The shared text-to-`f64` rule used wherever a kernel value's display string
-/// must be read back as a scalar.
+/// The shared text-to-`f64` rule used by FEMM expression and value decoders.
+/// Malformed text, zero rational denominators, and non-finite values are
+/// rejected.
 ///
 /// # Examples
 ///
 /// ```
-/// use sim_lib_femm_core::parse_displayed_number;
+/// use sim_lib_femm_core::parse_finite_number;
 ///
-/// assert_eq!(parse_displayed_number("0.5"), Some(0.5));
-/// assert_eq!(parse_displayed_number("3/4"), Some(0.75));
-/// assert_eq!(parse_displayed_number("not-a-number"), None);
+/// assert_eq!(parse_finite_number("0.5"), Some(0.5));
+/// assert_eq!(parse_finite_number("3/4"), Some(0.75));
+/// assert_eq!(parse_finite_number("1/0"), None);
+/// assert_eq!(parse_finite_number("inf"), None);
 /// ```
+pub fn parse_finite_number(text: &str) -> Option<f64> {
+    let value = if let Some((num, den)) = text.split_once('/') {
+        let num = num.parse::<f64>().ok()?;
+        let den = den.parse::<f64>().ok()?;
+        if den == 0.0 {
+            return None;
+        }
+        num / den
+    } else {
+        text.parse::<f64>().ok()?
+    };
+    value.is_finite().then_some(value)
+}
+
+/// Parse a displayed scalar, accepting a plain decimal or a `num/den` rational.
+///
+/// This compatibility wrapper uses [`parse_finite_number`], so displayed
+/// scalars are finite-only.
 pub fn parse_displayed_number(text: &str) -> Option<f64> {
-    if let Some((num, den)) = text.split_once('/') {
-        return Some(num.parse::<f64>().ok()? / den.parse::<f64>().ok()?);
-    }
-    text.parse::<f64>().ok()
+    parse_finite_number(text)
 }
 
 /// Decode a kernel [`Value`] to `f64` via its display and [`parse_displayed_number`].

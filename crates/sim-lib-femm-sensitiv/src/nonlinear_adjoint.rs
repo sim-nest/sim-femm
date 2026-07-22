@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use sim_kernel::{Cx, Symbol};
 use sim_lib_femm_core::{FemmError, FemmLimits, FemmResult, ParamSet, value_as_f64};
-use sim_lib_femm_function::{ModelCallable, resolve_excitation};
 use sim_lib_femm_geometry::eval_expr_f64;
 use sim_lib_femm_material::BoundaryKind;
 use sim_lib_femm_mesh::{DeterministicMesher, FemmModel, Mesher};
 use sim_lib_femm_post::{Excitation, FemmSolution, QuantitySpec, quantity};
+use sim_lib_femm_query::{ModelCallable, resolve_excitation};
 use sim_lib_femm_solve::{DenseFallbackSolver, GradientTrust, SteadySolve, solve_steady};
 use sim_lib_femm_space::ElementGeom;
 
@@ -238,7 +238,9 @@ fn nonlinear_residual_at(
             .elem_region
             .get(elem_index)
             .cloned()
-            .unwrap_or_else(|| Symbol::new("region"));
+            .ok_or_else(|| {
+                FemmError::InvalidGeometry(format!("element {elem_index} has no region label"))
+            })?;
         let mu_r = region_mu_r(cx, model, params, &region)?;
         let ids = [tri[0] as usize, tri[1] as usize, tri[2] as usize];
         let local = nonlinear_element_residual(&geom, [u[ids[0]], u[ids[1]], u[ids[2]]], mu_r);
@@ -265,10 +267,7 @@ fn region_mu_r(
     region: &Symbol,
 ) -> FemmResult<f64> {
     let material = model
-        .materials
-        .iter()
-        .find(|material| material.name == *region)
-        .or_else(|| model.materials.first())
+        .material_for_region(region)
         .ok_or_else(|| FemmError::MissingMaterial(region.to_string()))?;
     material
         .mu_r

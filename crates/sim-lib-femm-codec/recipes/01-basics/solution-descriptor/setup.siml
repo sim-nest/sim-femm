@@ -1,1 +1,7 @@
-(quote (#(femm/Solution v1 1 1 "electrostatic" "planar" () 3 1) codec roundtrip))
+(expr:map
+  [kind femm/solution-codec]
+  [operation descriptor-round-trip]
+  [solution "#(femm/Solution v1 1 1 \"electrostatic\" \"planar\" () 3 1)"]
+  [codec codec/lisp]
+  [fixture femm-fixtures/parallel-plate-capacitor]
+  [mode modeled])

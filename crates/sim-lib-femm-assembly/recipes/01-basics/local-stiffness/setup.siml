@@ -1,1 +1,8 @@
-(quote (femm-assembly element triangle local-stiffness nnz 9 tiny))
+(expr:map
+  [kind femm/local-stiffness]
+  [operation assemble-element]
+  [element triangle]
+  [matrix local-stiffness]
+  [nnz 9]
+  [fixture femm-fixtures/parallel-plate-capacitor]
+  [mode modeled])

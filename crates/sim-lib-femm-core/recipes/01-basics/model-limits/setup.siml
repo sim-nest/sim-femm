@@ -1,1 +1,8 @@
-(quote (#(femm/Model v1 1 "parallel-plate-capacitor" "electrostatic" "planar" ("gap-mm")) limits tiny))
+(expr:map
+  [kind femm/model-limits]
+  [operation validate-limits]
+  [fixture femm-fixtures/parallel-plate-capacitor]
+  [model "#(femm/Model v1 1 \"parallel-plate-capacitor\" \"electrostatic\" \"planar\" (\"gap-mm\"))"]
+  [limits [elements 3 iterations 1 tolerance "1e-9"]]
+  [behavior fail-closed]
+  [mode modeled])

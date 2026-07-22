@@ -1,7 +1,7 @@
 //! Scalar expression evaluation for FEMM sensitivity paths.
 
 use sim_kernel::{Cx, Expr, Symbol};
-use sim_lib_femm_core::{FemmError, FemmResult, ParamSet, integer_exponent};
+use sim_lib_femm_core::{FemmError, FemmResult, ParamSet, integer_exponent, normalize_femm_expr};
 use sim_lib_numbers_ad::{Dual, Scalarish, Tape, Var};
 
 pub(crate) fn direct_expr_derivative(
@@ -20,6 +20,17 @@ pub(crate) fn eval_expr_dual(
     wrt: Option<&Symbol>,
     coords: &[(&str, f64)],
 ) -> FemmResult<Dual<1>> {
+    let expr = normalize_femm_expr(expr)?;
+    eval_canonical_expr_dual(cx, &expr, params, wrt, coords)
+}
+
+fn eval_canonical_expr_dual(
+    cx: &mut Cx,
+    expr: &Expr,
+    params: &ParamSet,
+    wrt: Option<&Symbol>,
+    coords: &[(&str, f64)],
+) -> FemmResult<Dual<1>> {
     match expr {
         Expr::Number(number) => parse_number(&number.canonical).map(Dual::<1>::cst),
         Expr::Symbol(symbol) | Expr::Local(symbol) => {
@@ -27,7 +38,7 @@ pub(crate) fn eval_expr_dual(
                 .iter()
                 .find(|(name, _)| symbol.name.as_ref() == *name)
             {
-                return Ok(Dual::<1>::cst(*value));
+                return finite_dual(Dual::<1>::cst(*value), "non-finite coordinate binding");
             }
             let value = params
                 .get(symbol)
@@ -47,7 +58,7 @@ pub(crate) fn eval_expr_dual(
             };
             let values = args
                 .iter()
-                .map(|arg| eval_expr_dual(cx, arg, params, wrt, coords))
+                .map(|arg| eval_canonical_expr_dual(cx, arg, params, wrt, coords))
                 .collect::<FemmResult<Vec<_>>>()?;
             apply_dual_op(symbol, &values)
         }
@@ -60,24 +71,37 @@ pub(crate) fn eval_expr_dual(
 fn apply_dual_op(symbol: &Symbol, values: &[Dual<1>]) -> FemmResult<Dual<1>> {
     match (symbol.name.as_ref(), values) {
         ("+", []) => Ok(Dual::cst(0.0)),
-        ("+", values) => Ok(values
-            .iter()
-            .copied()
-            .fold(Dual::cst(0.0), |acc, value| acc + value)),
+        ("+", values) => finite_dual(
+            values
+                .iter()
+                .copied()
+                .fold(Dual::cst(0.0), |acc, value| acc + value),
+            "non-finite scalar addition",
+        ),
         ("*", []) => Ok(Dual::cst(1.0)),
-        ("*", values) => Ok(values
-            .iter()
-            .copied()
-            .fold(Dual::cst(1.0), |acc, value| acc * value)),
-        ("-", [value]) => Ok(-*value),
-        ("-", [left, right]) => Ok(*left - *right),
-        ("/", [left, right]) => Ok(*left / *right),
+        ("*", values) => finite_dual(
+            values
+                .iter()
+                .copied()
+                .fold(Dual::cst(1.0), |acc, value| acc * value),
+            "non-finite scalar multiplication",
+        ),
+        ("-", [value]) => finite_dual(-*value, "non-finite scalar negation"),
+        ("-", [left, right]) => finite_dual(*left - *right, "non-finite scalar subtraction"),
+        ("/", [left, right]) => {
+            if right.v == 0.0 {
+                return Err(FemmError::SensitivityUnavailable(
+                    "division by zero in scalar expression".to_owned(),
+                ));
+            }
+            finite_dual(*left / *right, "non-finite scalar division")
+        }
         ("pow", [base, exp]) => apply_dual_pow(*base, *exp),
-        ("sin", [arg]) => Ok(arg.sin()),
-        ("cos", [arg]) => Ok(arg.cos()),
-        ("exp", [arg]) => Ok(arg.exp()),
-        ("ln", [arg]) if arg.v > 0.0 => Ok(arg.ln()),
-        ("sqrt", [arg]) if arg.v >= 0.0 => Ok(arg.sqrt()),
+        ("sin", [arg]) => finite_dual(arg.sin(), "non-finite sin"),
+        ("cos", [arg]) => finite_dual(arg.cos(), "non-finite cos"),
+        ("exp", [arg]) => finite_dual(arg.exp(), "non-finite exp"),
+        ("ln", [arg]) if arg.v > 0.0 => finite_dual(arg.ln(), "non-finite ln"),
+        ("sqrt", [arg]) if arg.v >= 0.0 => finite_dual(arg.sqrt(), "non-finite sqrt"),
         _ => Err(FemmError::SensitivityUnavailable(format!(
             "unsupported operator {symbol} in exact direct gradient"
         ))),
@@ -140,6 +164,18 @@ fn eval_expr_tape(
     tape: &mut Tape,
     coords: &[(&str, f64)],
 ) -> FemmResult<TapeScalar> {
+    let expr = normalize_femm_expr(expr)?;
+    eval_canonical_expr_tape(cx, &expr, params, wrt, tape, coords)
+}
+
+fn eval_canonical_expr_tape(
+    cx: &mut Cx,
+    expr: &Expr,
+    params: &ParamSet,
+    wrt: &[(Symbol, usize, Var)],
+    tape: &mut Tape,
+    coords: &[(&str, f64)],
+) -> FemmResult<TapeScalar> {
     match expr {
         Expr::Number(number) => {
             parse_number(&number.canonical).map(|value| TapeScalar::constant(tape.constant(value)))
@@ -149,6 +185,11 @@ fn eval_expr_tape(
                 .iter()
                 .find(|(name, _)| symbol.name.as_ref() == *name)
             {
+                if !value.is_finite() {
+                    return Err(FemmError::SensitivityUnavailable(
+                        "non-finite coordinate binding".to_owned(),
+                    ));
+                }
                 return Ok(TapeScalar::constant(tape.constant(*value)));
             }
             if let Some((_, _, var)) = wrt.iter().find(|(name, _, _)| name == symbol) {
@@ -168,7 +209,7 @@ fn eval_expr_tape(
             };
             let values = args
                 .iter()
-                .map(|arg| eval_expr_tape(cx, arg, params, wrt, tape, coords))
+                .map(|arg| eval_canonical_expr_tape(cx, arg, params, wrt, tape, coords))
                 .collect::<FemmResult<Vec<_>>>()?;
             apply_tape_op(symbol, &values, tape)
         }
@@ -192,10 +233,7 @@ fn apply_tape_op(
                 acc = tape.add(acc, value.var);
                 depends_on_input |= value.depends_on_input;
             }
-            Ok(TapeScalar {
-                var: acc,
-                depends_on_input,
-            })
+            finite_tape_scalar(acc, depends_on_input, tape, "non-finite scalar addition")
         }
         ("*", []) => Ok(TapeScalar::constant(tape.constant(1.0))),
         ("*", values) => {
@@ -205,47 +243,72 @@ fn apply_tape_op(
                 acc = tape.mul(acc, value.var);
                 depends_on_input |= value.depends_on_input;
             }
-            Ok(TapeScalar {
-                var: acc,
+            finite_tape_scalar(
+                acc,
                 depends_on_input,
-            })
+                tape,
+                "non-finite scalar multiplication",
+            )
         }
         ("-", [value]) => {
             let zero = tape.constant(0.0);
-            Ok(TapeScalar {
-                var: tape.sub(zero, value.var),
-                depends_on_input: value.depends_on_input,
-            })
+            finite_tape_scalar(
+                tape.sub(zero, value.var),
+                value.depends_on_input,
+                tape,
+                "non-finite scalar negation",
+            )
         }
-        ("-", [left, right]) => Ok(TapeScalar {
-            var: tape.sub(left.var, right.var),
-            depends_on_input: left.depends_on_input || right.depends_on_input,
-        }),
-        ("/", [left, right]) => Ok(TapeScalar {
-            var: tape.div(left.var, right.var),
-            depends_on_input: left.depends_on_input || right.depends_on_input,
-        }),
+        ("-", [left, right]) => finite_tape_scalar(
+            tape.sub(left.var, right.var),
+            left.depends_on_input || right.depends_on_input,
+            tape,
+            "non-finite scalar subtraction",
+        ),
+        ("/", [left, right]) => {
+            if tape.value(right.var) == 0.0 {
+                return Err(FemmError::SensitivityUnavailable(
+                    "division by zero in scalar expression".to_owned(),
+                ));
+            }
+            finite_tape_scalar(
+                tape.div(left.var, right.var),
+                left.depends_on_input || right.depends_on_input,
+                tape,
+                "non-finite scalar division",
+            )
+        }
         ("pow", [base, exp]) => apply_tape_pow(*base, *exp, tape),
-        ("sin", [arg]) => Ok(TapeScalar {
-            var: tape.sin(arg.var),
-            depends_on_input: arg.depends_on_input,
-        }),
-        ("cos", [arg]) => Ok(TapeScalar {
-            var: tape.cos(arg.var),
-            depends_on_input: arg.depends_on_input,
-        }),
-        ("exp", [arg]) => Ok(TapeScalar {
-            var: tape.exp(arg.var),
-            depends_on_input: arg.depends_on_input,
-        }),
-        ("ln", [arg]) if tape.value(arg.var) > 0.0 => Ok(TapeScalar {
-            var: tape.ln(arg.var),
-            depends_on_input: arg.depends_on_input,
-        }),
-        ("sqrt", [arg]) if tape.value(arg.var) >= 0.0 => Ok(TapeScalar {
-            var: tape.sqrt(arg.var),
-            depends_on_input: arg.depends_on_input,
-        }),
+        ("sin", [arg]) => finite_tape_scalar(
+            tape.sin(arg.var),
+            arg.depends_on_input,
+            tape,
+            "non-finite sin",
+        ),
+        ("cos", [arg]) => finite_tape_scalar(
+            tape.cos(arg.var),
+            arg.depends_on_input,
+            tape,
+            "non-finite cos",
+        ),
+        ("exp", [arg]) => finite_tape_scalar(
+            tape.exp(arg.var),
+            arg.depends_on_input,
+            tape,
+            "non-finite exp",
+        ),
+        ("ln", [arg]) if tape.value(arg.var) > 0.0 => finite_tape_scalar(
+            tape.ln(arg.var),
+            arg.depends_on_input,
+            tape,
+            "non-finite ln",
+        ),
+        ("sqrt", [arg]) if tape.value(arg.var) >= 0.0 => finite_tape_scalar(
+            tape.sqrt(arg.var),
+            arg.depends_on_input,
+            tape,
+            "non-finite sqrt",
+        ),
         _ => Err(FemmError::SensitivityUnavailable(format!(
             "unsupported operator {symbol} in exact adjoint gradient"
         ))),
@@ -263,7 +326,7 @@ fn apply_dual_pow(base: Dual<1>, exp: Dual<1>) -> FemmResult<Dual<1>> {
             "pow with non-integer exponent requires positive base".to_owned(),
         ));
     }
-    Ok((base.ln() * exp).exp())
+    finite_dual((base.ln() * exp).exp(), "non-finite pow")
 }
 
 fn dual_powi(base: Dual<1>, exponent: i32) -> FemmResult<Dual<1>> {
@@ -279,10 +342,13 @@ fn dual_powi(base: Dual<1>, exponent: i32) -> FemmResult<Dual<1>> {
         _ if base.v == 0.0 => 0.0,
         _ => f64::from(exponent) * value / base.v,
     };
-    Ok(Dual {
-        v: value,
-        d: [base.d[0] * scale],
-    })
+    finite_dual(
+        Dual {
+            v: value,
+            d: [base.d[0] * scale],
+        },
+        "non-finite integer pow",
+    )
 }
 
 fn apply_tape_pow(base: TapeScalar, exp: TapeScalar, tape: &mut Tape) -> FemmResult<TapeScalar> {
@@ -298,10 +364,12 @@ fn apply_tape_pow(base: TapeScalar, exp: TapeScalar, tape: &mut Tape) -> FemmRes
     }
     let ln_base = tape.ln(base.var);
     let scaled = tape.mul(ln_base, exp.var);
-    Ok(TapeScalar {
-        var: tape.exp(scaled),
-        depends_on_input: base.depends_on_input || exp.depends_on_input,
-    })
+    finite_tape_scalar(
+        tape.exp(scaled),
+        base.depends_on_input || exp.depends_on_input,
+        tape,
+        "non-finite pow",
+    )
 }
 
 fn tape_powi(base: TapeScalar, exponent: i32, tape: &mut Tape) -> FemmResult<TapeScalar> {
@@ -322,10 +390,7 @@ fn tape_powi(base: TapeScalar, exponent: i32, tape: &mut Tape) -> FemmResult<Tap
     } else {
         positive
     };
-    Ok(TapeScalar {
-        var,
-        depends_on_input: base.depends_on_input,
-    })
+    finite_tape_scalar(var, base.depends_on_input, tape, "non-finite integer pow")
 }
 
 fn tape_powi_nonnegative(base: Var, mut exponent: u32, tape: &mut Tape) -> Var {
@@ -346,4 +411,147 @@ fn tape_powi_nonnegative(base: Var, mut exponent: u32, tape: &mut Tape) -> Var {
 fn parse_number(text: &str) -> FemmResult<f64> {
     sim_lib_femm_core::parse_displayed_number(text)
         .ok_or_else(|| FemmError::SensitivityUnavailable(format!("bad number literal {text}")))
+}
+
+fn finite_dual(value: Dual<1>, context: &str) -> FemmResult<Dual<1>> {
+    if value.v.is_finite() && value.d.iter().all(|derivative| derivative.is_finite()) {
+        Ok(value)
+    } else {
+        Err(FemmError::SensitivityUnavailable(context.to_owned()))
+    }
+}
+
+fn finite_tape_scalar(
+    var: Var,
+    depends_on_input: bool,
+    tape: &Tape,
+    context: &str,
+) -> FemmResult<TapeScalar> {
+    if tape.value(var).is_finite() {
+        Ok(TapeScalar {
+            var,
+            depends_on_input,
+        })
+    } else {
+        Err(FemmError::SensitivityUnavailable(context.to_owned()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use sim_kernel::{Cx, DefaultFactory, EagerPolicy, Expr, Symbol};
+    use sim_lib_femm_core::ParamSet;
+
+    use super::*;
+
+    fn test_cx() -> Cx {
+        Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory))
+    }
+
+    fn num(text: &str) -> Expr {
+        sim_value::build::num_q(Some("numbers"), "f64", text)
+    }
+
+    fn call(operator: &str, args: Vec<Expr>) -> Expr {
+        Expr::Call {
+            operator: Box::new(Expr::Symbol(Symbol::new(operator))),
+            args,
+        }
+    }
+
+    fn infix(operator: &str, left: Expr, right: Expr) -> Expr {
+        Expr::Infix {
+            operator: Symbol::new(operator),
+            left: Box::new(left),
+            right: Box::new(right),
+        }
+    }
+
+    fn prefix(operator: &str, arg: Expr) -> Expr {
+        Expr::Prefix {
+            operator: Symbol::new(operator),
+            arg: Box::new(arg),
+        }
+    }
+
+    fn postfix(operator: &str, arg: Expr) -> Expr {
+        Expr::Postfix {
+            operator: Symbol::new(operator),
+            arg: Box::new(arg),
+        }
+    }
+
+    fn params(cx: &mut Cx, symbol: &Symbol, value: &str) -> ParamSet {
+        ParamSet::new(vec![(
+            symbol.clone(),
+            cx.factory()
+                .number_literal(Symbol::qualified("numbers", "f64"), value.to_owned())
+                .unwrap(),
+        )])
+    }
+
+    #[test]
+    fn direct_and_reverse_ad_normalize_all_expression_forms() {
+        let gap = Symbol::new("gap");
+        let cases = [
+            (call("*", vec![num("2.0"), Expr::Symbol(gap.clone())]), 2.0),
+            (infix("+", Expr::Symbol(gap.clone()), num("3.0")), 1.0),
+            (prefix("sin", Expr::Symbol(gap.clone())), 1.0),
+            (postfix("sqrt", Expr::Symbol(gap.clone())), 0.25),
+        ];
+        for (expr, expected) in cases {
+            let mut cx = test_cx();
+            let value = if expected == 0.25 { "4.0" } else { "0.0" };
+            let params = params(&mut cx, &gap, value);
+            let direct = direct_expr_derivative(&mut cx, &expr, &params, &gap).unwrap();
+            let reverse =
+                reverse_expr_gradient(&mut cx, &expr, &params, std::slice::from_ref(&gap)).unwrap();
+            assert!((direct - expected).abs() < 1.0e-12, "{expr:?}");
+            assert!((reverse[0].1 - expected).abs() < 1.0e-12, "{expr:?}");
+        }
+    }
+
+    #[test]
+    fn direct_and_reverse_ad_cover_femm_expression_operators() {
+        let gap = Symbol::new("gap");
+        let cases = [
+            (
+                call("+", vec![Expr::Symbol(gap.clone()), num("2.0")]),
+                3.0,
+                1.0,
+            ),
+            (
+                call("*", vec![num("2.0"), Expr::Symbol(gap.clone())]),
+                3.0,
+                2.0,
+            ),
+            (call("-", vec![Expr::Symbol(gap.clone())]), 3.0, -1.0),
+            (
+                call("/", vec![Expr::Symbol(gap.clone()), num("2.0")]),
+                3.0,
+                0.5,
+            ),
+            (
+                call("pow", vec![Expr::Symbol(gap.clone()), num("2.0")]),
+                3.0,
+                6.0,
+            ),
+            (call("sin", vec![Expr::Symbol(gap.clone())]), 0.0, 1.0),
+            (call("cos", vec![Expr::Symbol(gap.clone())]), 0.0, 0.0),
+            (call("exp", vec![Expr::Symbol(gap.clone())]), 0.0, 1.0),
+            (call("ln", vec![Expr::Symbol(gap.clone())]), 2.0, 0.5),
+            (call("sqrt", vec![Expr::Symbol(gap.clone())]), 4.0, 0.25),
+        ];
+        for (expr, value, expected) in cases {
+            let mut cx = test_cx();
+            let params = params(&mut cx, &gap, &value.to_string());
+            let direct = direct_expr_derivative(&mut cx, &expr, &params, &gap).unwrap();
+            let reverse =
+                reverse_expr_gradient(&mut cx, &expr, &params, std::slice::from_ref(&gap)).unwrap();
+            assert!((direct - expected).abs() < 1.0e-12, "{expr:?}");
+            assert!((reverse[0].1 - expected).abs() < 1.0e-12, "{expr:?}");
+        }
+    }
 }

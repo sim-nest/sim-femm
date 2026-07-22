@@ -3,7 +3,7 @@ name = "sim-lib-femm-ode"
 version = "0.1.2"
 edition = "2024"
 license = "MPL-2.0"
-description = "SIM workspace package for sim lib femm ode."
+description = "Explicit ODE right-hand-side adapter and DAE residual contract for FEMM models."
 readme = "README.md"
 publish = true
 repository = "https://github.com/sim-nest/sim-femm"
@@ -24,6 +24,12 @@ sim-lib-numbers-func = { version = "0.1.0" }
 
 [dev-dependencies]
 sim-lib-femm-fixtures = { version = "0.1.0", path = "../sim-lib-femm-fixtures" }
+sim-lib-femm-sensitiv = { version = "0.1.0", path = "../sim-lib-femm-sensitiv" }
+sim-lib-numbers-arith = { version = "0.1.0" }
+sim-lib-numbers-f64 = { version = "0.1.0" }
+sim-lib-numbers-numeric = { version = "0.1.0" }
+sim-lib-numbers-quad = { version = "0.1.0" }
+sim-lib-numbers-rk = { version = "0.1.0" }
 
 [build-dependencies]
 sim-cookbook = { version = "0.1.0" }

@@ -92,9 +92,14 @@ fn documented_femm_forms_are_callable() {
             ]),
         )
         .unwrap();
+    let sim_kernel::Expr::Map(entries) = grad.object().as_expr(&mut cx).unwrap() else {
+        panic!("expected gradient answer table");
+    };
+    assert!(map_entry(&entries, "gradient").is_some());
     assert!(matches!(
-        grad.object().as_expr(&mut cx).unwrap(),
-        sim_kernel::Expr::List(_)
+        map_entry(&entries, "trust"),
+        Some(sim_kernel::Expr::String(label))
+            if label == "adjoint-verified" || label == "finite-difference-only"
     ));
 
     let field = cx
@@ -136,4 +141,16 @@ fn documented_femm_forms_are_callable() {
         )
         .unwrap();
     assert!(ode.object().as_callable().is_some());
+}
+
+fn map_entry<'a>(
+    entries: &'a [(sim_kernel::Expr, sim_kernel::Expr)],
+    key: &str,
+) -> Option<&'a sim_kernel::Expr> {
+    entries
+        .iter()
+        .find_map(|(entry_key, value)| match entry_key {
+            sim_kernel::Expr::Symbol(symbol) if symbol == &Symbol::new(key) => Some(value),
+            _ => None,
+        })
 }

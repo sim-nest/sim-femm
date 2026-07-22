@@ -15,6 +15,7 @@
 //! `GradientTrust::AdjointUnverified`.
 
 mod expr_eval;
+mod gradient_answer;
 mod implementation;
 mod nonlinear_adjoint;
 mod sensitivity_mesh;
@@ -23,6 +24,7 @@ mod sensitivity_solve;
 mod sensitivity_types;
 mod total_gradient;
 
+pub use gradient_answer::*;
 pub use implementation::*;
 pub use total_gradient::*;
 

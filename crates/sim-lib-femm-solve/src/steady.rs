@@ -10,6 +10,7 @@ use sim_kernel::{Cx, DefaultFactory, Factory, Symbol};
 use sim_lib_femm_assembly::{AssembledSystem, CoeffEval, PhysicsFront, assemble_system};
 use sim_lib_femm_core::{FemmError, FemmLimits, FemmResult, ParamSet, PhysicsKind, StableId};
 use sim_lib_femm_flow::{FemmSolveEvent, PtcOptions, SolveDiagnostics, ptc_solve_report};
+use sim_lib_femm_material::BoundaryKind;
 use sim_lib_femm_mesh::{DeterministicMesher, FemmModel, Mesher, enforce_mesh_limits};
 use sim_lib_femm_physics::{
     CurrentSteadyFront, ElectrostaticFront, HeatSteadyFront, MagneticsHarmonicFront,
@@ -22,7 +23,10 @@ use sim_lib_numbers_ad::Scalarish;
 use crate::{
     DenseFallbackSolver, FactorHandle, LinearMethod, SolveCertificate,
     certificate::{make_linear_certificate, make_ptc_certificate},
+    implementation::dense_residual_norm,
 };
+
+const DIRECT_RESIDUAL_TOL: f64 = 1.0e-8;
 
 /// The result of a steady-state solve: the solution and its factorization.
 ///
@@ -54,6 +58,7 @@ pub fn solve_steady(
 ) -> FemmResult<SteadySolve> {
     let meshed = DeterministicMesher::new().mesh(cx, model, params)?;
     enforce_mesh_limits(&meshed.mesh, limits)?;
+    require_active_dirichlet_boundary(model, &meshed)?;
     if has_nonlinear_bh(model) && model.physics == PhysicsKind::Magnetostatic {
         return solve_nonlinear_ptc(cx, model, params, limits, cached_factor, meshed);
     }
@@ -76,9 +81,13 @@ pub fn solve_steady(
     };
     let factor = reuse_or_factor(&assembled, cached_factor)?;
     let rhs = assembled.r.iter().map(|value| -value).collect::<Vec<_>>();
-    let u = solve_dense_with_regularization(&factor.dense, &rhs)?;
+    let DenseSolveReport {
+        x: u,
+        final_residual,
+        method,
+    } = solve_dense_checked(&factor.dense, &rhs)?;
     let solve_id = StableId(model.id.0 ^ params.fingerprint(cx).0 ^ factor.matrix_fingerprint.0);
-    let solution = Arc::new(FemmSolution {
+    let solution = FemmSolution {
         id: solve_id,
         model_id: model.id,
         physics: model.physics.clone(),
@@ -87,10 +96,10 @@ pub fn solve_steady(
         mesh: meshed.mesh.clone(),
         u,
         diagnostics: SolveDiagnostics {
-            method: Symbol::new("femm-direct"),
+            method,
             converged: true,
             iterations: 1,
-            final_residual: residual_norm(&assembled),
+            final_residual,
             events: vec![
                 FemmSolveEvent::Validated,
                 FemmSolveEvent::Meshed {
@@ -102,7 +111,9 @@ pub fn solve_steady(
             ],
             diagnostics: meshed.diagnostics,
         },
-    });
+    };
+    solution.validate()?;
+    let solution = Arc::new(solution);
     let certificate = make_linear_certificate(cx, &solution)?;
     Ok(SteadySolve {
         model: model.clone(),
@@ -147,7 +158,7 @@ fn solve_nonlinear_ptc(
             });
             diagnostics.iterations = ptc_iterations(&diagnostics);
             diagnostics.diagnostics.extend(meshed.diagnostics);
-            let solution = Arc::new(FemmSolution {
+            let solution = FemmSolution {
                 id: solve_id,
                 model_id: model.id,
                 physics: model.physics.clone(),
@@ -156,7 +167,9 @@ fn solve_nonlinear_ptc(
                 mesh: meshed.mesh,
                 u,
                 diagnostics,
-            });
+            };
+            solution.validate()?;
+            let solution = Arc::new(solution);
             let certificate =
                 make_ptc_certificate(cx, &solution.diagnostics, solve_id.0, &solution.u)?;
             Ok(SteadySolve {
@@ -197,6 +210,30 @@ fn has_nonlinear_bh(model: &FemmModel) -> bool {
         .materials
         .iter()
         .any(|material| material.nu_of_b2.is_some())
+}
+
+fn require_active_dirichlet_boundary(
+    model: &FemmModel,
+    meshed: &sim_lib_femm_mesh::MeshedModel,
+) -> FemmResult<()> {
+    let active = model
+        .boundaries
+        .iter()
+        .filter(|boundary| boundary.kind == BoundaryKind::Dirichlet)
+        .any(|boundary| {
+            meshed
+                .mesh
+                .edge_boundary
+                .iter()
+                .any(|(_, _, name)| name == &boundary.name)
+        });
+    if active {
+        Ok(())
+    } else {
+        Err(FemmError::SolveDidNotConverge(
+            "underconstrained system: no active Dirichlet boundary".to_owned(),
+        ))
+    }
 }
 
 fn ptc_initial_state(len: usize) -> Vec<f64> {
@@ -276,38 +313,36 @@ fn reuse_or_factor(
         payload: DefaultFactory
             .string("dense-factor".to_owned())
             .map_err(|err| sim_lib_femm_core::FemmError::SolveDidNotConverge(err.to_string()))?,
-        dense: assembled.k.to_dense(),
+        dense: assembled.k.to_dense()?,
     })
 }
 
-fn residual_norm(assembled: &AssembledSystem) -> f64 {
-    assembled
-        .r
-        .iter()
-        .map(|value| value * value)
-        .sum::<f64>()
-        .sqrt()
+struct DenseSolveReport {
+    x: Vec<f64>,
+    final_residual: f64,
+    method: Symbol,
 }
 
-fn solve_dense_with_regularization(matrix: &[Vec<f64>], rhs: &[f64]) -> FemmResult<Vec<f64>> {
-    match DenseFallbackSolver::dense_solve(matrix, rhs) {
-        Ok(out) => Ok(out),
-        Err(sim_lib_femm_core::FemmError::SolveDidNotConverge(_)) => {
-            let mut shifted = matrix.to_vec();
-            for (index, row) in shifted.iter_mut().enumerate() {
-                row[index] += 1.0e-9;
-            }
-            DenseFallbackSolver::dense_solve(&shifted, rhs)
-        }
-        Err(err) => Err(err),
+fn solve_dense_checked(matrix: &[Vec<f64>], rhs: &[f64]) -> FemmResult<DenseSolveReport> {
+    let x = DenseFallbackSolver::dense_solve(matrix, rhs)?;
+    let final_residual = dense_residual_norm(matrix, &x, rhs)?;
+    if final_residual > DIRECT_RESIDUAL_TOL {
+        return Err(FemmError::SolveDidNotConverge(format!(
+            "direct residual {final_residual:e} exceeds tolerance"
+        )));
     }
+    Ok(DenseSolveReport {
+        x,
+        final_residual,
+        method: Symbol::new("femm-direct"),
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use sim_kernel::Expr;
     use sim_lib_femm_core::{Formulation, LengthUnit, ParamRole, ParamSpec, PhysicsKind};
-    use sim_lib_femm_geometry::{AnalyticRegion2, Geometry2, dummy_origin};
+    use sim_lib_femm_geometry::{BlockLabel2, Geometry2, Node2, Segment2, dummy_origin};
     use sim_lib_femm_material::{Boundary, BoundaryKind, Material, MeshPolicy};
 
     use super::*;
@@ -336,10 +371,46 @@ mod tests {
                 role: ParamRole::Excitation,
             }],
             geometry: Geometry2 {
-                analytic: vec![AnalyticRegion2::Rect {
+                nodes: vec![
+                    Node2 {
+                        xy: [num("0.0"), num("0.0")],
+                    },
+                    Node2 {
+                        xy: [num("1.0"), num("0.0")],
+                    },
+                    Node2 {
+                        xy: [num("1.0"), num("1.0")],
+                    },
+                    Node2 {
+                        xy: [num("0.0"), num("1.0")],
+                    },
+                ],
+                segments: vec![
+                    Segment2 {
+                        a: 0,
+                        b: 1,
+                        boundary: Some(Symbol::new("bottom")),
+                    },
+                    Segment2 {
+                        a: 1,
+                        b: 2,
+                        boundary: None,
+                    },
+                    Segment2 {
+                        a: 2,
+                        b: 3,
+                        boundary: Some(Symbol::new("top")),
+                    },
+                    Segment2 {
+                        a: 3,
+                        b: 0,
+                        boundary: None,
+                    },
+                ],
+                labels: vec![BlockLabel2 {
                     name: Symbol::new("air"),
-                    xy: [num("0.0"), num("0.0")],
-                    wh: [num("1.0"), num("1.0")],
+                    at: [num("0.5"), num("0.5")],
+                    material: Symbol::new("air"),
                 }],
                 ..Geometry2::default()
             },
@@ -353,11 +424,18 @@ mod tests {
                 heat_source: None,
                 remanence: None,
             }],
-            boundaries: vec![Boundary {
-                name: Symbol::new("top"),
-                kind: BoundaryKind::Dirichlet,
-                value: Expr::Symbol(Symbol::new("vtop")),
-            }],
+            boundaries: vec![
+                Boundary {
+                    name: Symbol::new("top"),
+                    kind: BoundaryKind::Dirichlet,
+                    value: num("1.0"),
+                },
+                Boundary {
+                    name: Symbol::new("bottom"),
+                    kind: BoundaryKind::Dirichlet,
+                    value: num("0.0"),
+                },
+            ],
             sources: Vec::new(),
             outputs: Vec::new(),
             mesh_policy: MeshPolicy {
@@ -387,6 +465,34 @@ mod tests {
         assert_eq!(out.solution.mesh.tri.len(), 2);
         assert_eq!(out.solution.u.len(), out.solution.mesh.xy.len());
         assert_eq!(out.certificate.method, "femm-direct");
+        assert!(out.certificate.final_residual < DIRECT_RESIDUAL_TOL);
         assert_eq!(out.certificate.gradient_trust, None::<crate::GradientTrust>);
+    }
+
+    #[test]
+    fn underconstrained_linear_solve_errors_without_regularization() {
+        let mut cx = Cx::new(
+            std::sync::Arc::new(sim_kernel::EagerPolicy),
+            std::sync::Arc::new(DefaultFactory),
+        );
+        let mut model = one_box_model();
+        model.boundaries.clear();
+        for segment in &mut model.geometry.segments {
+            segment.boundary = None;
+        }
+        let err = match solve_steady(
+            &mut cx,
+            &model,
+            &ParamSet::default(),
+            &FemmLimits::default(),
+            None,
+        ) {
+            Ok(_) => panic!("expected SolveDidNotConverge"),
+            Err(err) => err,
+        };
+        let FemmError::SolveDidNotConverge(message) = err else {
+            panic!("expected SolveDidNotConverge");
+        };
+        assert!(message.contains("underconstrained system"));
     }
 }

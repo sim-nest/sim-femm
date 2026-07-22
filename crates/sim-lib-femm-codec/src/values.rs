@@ -234,8 +234,8 @@ pub fn field_read_construct(field: &Field) -> String {
 
 /// Decodes a field read-construct into a [`FieldSummary`].
 ///
-/// Accepts both the versioned `#(femm/Field v1 ...)` form and the legacy
-/// `#(femm/field ...)` form.
+/// Accepts both the versioned `#(femm/Field v1 ...)` form and the lowercase
+/// compatibility `#(femm/field ...)` form.
 ///
 /// # Examples
 ///

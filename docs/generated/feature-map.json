@@ -1,5 +1,105 @@
 {
-  "schema": "sim.feature-map.v1",
-  "repo": "sim-femm",
-  "packages": []
+  "generator": "xtask repo-contract v1",
+  "packages": [
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-lib-femm-assembly"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-lib-femm-codec"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-lib-femm-core"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-lib-femm-field"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-lib-femm-fixtures"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-lib-femm-flow"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-lib-femm-function"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-lib-femm-geometry"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-lib-femm-material"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-lib-femm-mesh"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-lib-femm-ode"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-lib-femm-physics"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-lib-femm-post"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-lib-femm-prelude"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-lib-femm-query"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-lib-femm-sensitiv"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-lib-femm-solve"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-lib-femm-space"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "sim-lib-femm-tape"
+    },
+    {
+      "features": [],
+      "group": "workspace",
+      "package": "xtask"
+    }
+  ]
 }

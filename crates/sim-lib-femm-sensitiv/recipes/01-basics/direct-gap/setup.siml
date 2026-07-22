@@ -1,1 +1,9 @@
-(quote (#(femm/Sensitivity v1 "direct-exact" ("gap")) wrt gap))
+(expr:map
+  [kind femm/direct-gap-sensitivity]
+  [operation differentiate]
+  [sensitivity "#(femm/Sensitivity v1 \"direct-exact\" (\"gap\"))"]
+  [fixture femm-fixtures/parallel-plate-capacitor]
+  [query energy]
+  [wrt [gap]]
+  [trust direct-exact]
+  [mode modeled])

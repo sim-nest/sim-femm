@@ -1,95 +1,132 @@
 {
-  "schema": "sim.card-index.v1",
+  "card_count": 21,
   "cards": [
-    "crates/sim-lib-femm-assembly/recipes/01-basics/chapter.toml",
-    "crates/sim-lib-femm-assembly/recipes/01-basics/local-stiffness/purpose.md",
-    "crates/sim-lib-femm-assembly/recipes/01-basics/local-stiffness/recipe.toml",
-    "crates/sim-lib-femm-assembly/recipes/01-basics/local-stiffness/setup.siml",
-    "crates/sim-lib-femm-assembly/recipes/book.toml",
-    "crates/sim-lib-femm-codec/recipes/01-basics/chapter.toml",
-    "crates/sim-lib-femm-codec/recipes/01-basics/solution-descriptor/purpose.md",
-    "crates/sim-lib-femm-codec/recipes/01-basics/solution-descriptor/recipe.toml",
-    "crates/sim-lib-femm-codec/recipes/01-basics/solution-descriptor/setup.siml",
-    "crates/sim-lib-femm-codec/recipes/book.toml",
-    "crates/sim-lib-femm-core/recipes/01-basics/chapter.toml",
-    "crates/sim-lib-femm-core/recipes/01-basics/model-limits/purpose.md",
-    "crates/sim-lib-femm-core/recipes/01-basics/model-limits/recipe.toml",
-    "crates/sim-lib-femm-core/recipes/01-basics/model-limits/setup.siml",
-    "crates/sim-lib-femm-core/recipes/book.toml",
-    "crates/sim-lib-femm-field/recipes/01-basics/chapter.toml",
-    "crates/sim-lib-femm-field/recipes/01-basics/potential-field/purpose.md",
-    "crates/sim-lib-femm-field/recipes/01-basics/potential-field/recipe.toml",
-    "crates/sim-lib-femm-field/recipes/01-basics/potential-field/setup.siml",
-    "crates/sim-lib-femm-field/recipes/book.toml",
-    "crates/sim-lib-femm-fixtures/recipes/01-basics/chapter.toml",
-    "crates/sim-lib-femm-fixtures/recipes/01-basics/parallel-plate/purpose.md",
-    "crates/sim-lib-femm-fixtures/recipes/01-basics/parallel-plate/recipe.toml",
-    "crates/sim-lib-femm-fixtures/recipes/01-basics/parallel-plate/setup.siml",
-    "crates/sim-lib-femm-fixtures/recipes/book.toml",
-    "crates/sim-lib-femm-flow/recipes/01-basics/chapter.toml",
-    "crates/sim-lib-femm-flow/recipes/01-basics/tiny-pipeline/purpose.md",
-    "crates/sim-lib-femm-flow/recipes/01-basics/tiny-pipeline/recipe.toml",
-    "crates/sim-lib-femm-flow/recipes/01-basics/tiny-pipeline/setup.siml",
-    "crates/sim-lib-femm-flow/recipes/book.toml",
-    "crates/sim-lib-femm-function/recipes/01-basics/chapter.toml",
-    "crates/sim-lib-femm-function/recipes/01-basics/energy-function/purpose.md",
-    "crates/sim-lib-femm-function/recipes/01-basics/energy-function/recipe.toml",
-    "crates/sim-lib-femm-function/recipes/01-basics/energy-function/setup.siml",
-    "crates/sim-lib-femm-function/recipes/book.toml",
-    "crates/sim-lib-femm-geometry/recipes/01-basics/chapter.toml",
-    "crates/sim-lib-femm-geometry/recipes/01-basics/rectangle-region/purpose.md",
-    "crates/sim-lib-femm-geometry/recipes/01-basics/rectangle-region/recipe.toml",
-    "crates/sim-lib-femm-geometry/recipes/01-basics/rectangle-region/setup.siml",
-    "crates/sim-lib-femm-geometry/recipes/book.toml",
-    "crates/sim-lib-femm-material/recipes/01-basics/air-material/purpose.md",
-    "crates/sim-lib-femm-material/recipes/01-basics/air-material/recipe.toml",
-    "crates/sim-lib-femm-material/recipes/01-basics/air-material/setup.siml",
-    "crates/sim-lib-femm-material/recipes/01-basics/chapter.toml",
-    "crates/sim-lib-femm-material/recipes/book.toml",
-    "crates/sim-lib-femm-mesh/recipes/01-basics/chapter.toml",
-    "crates/sim-lib-femm-mesh/recipes/01-basics/tiny-triangle/purpose.md",
-    "crates/sim-lib-femm-mesh/recipes/01-basics/tiny-triangle/recipe.toml",
-    "crates/sim-lib-femm-mesh/recipes/01-basics/tiny-triangle/setup.siml",
-    "crates/sim-lib-femm-mesh/recipes/book.toml",
-    "crates/sim-lib-femm-ode/recipes/01-basics/chapter.toml",
-    "crates/sim-lib-femm-ode/recipes/01-basics/energy-rhs/purpose.md",
-    "crates/sim-lib-femm-ode/recipes/01-basics/energy-rhs/recipe.toml",
-    "crates/sim-lib-femm-ode/recipes/01-basics/energy-rhs/setup.siml",
-    "crates/sim-lib-femm-ode/recipes/book.toml",
-    "crates/sim-lib-femm-physics/recipes/01-basics/chapter.toml",
-    "crates/sim-lib-femm-physics/recipes/01-basics/electrostatic-planar/purpose.md",
-    "crates/sim-lib-femm-physics/recipes/01-basics/electrostatic-planar/recipe.toml",
-    "crates/sim-lib-femm-physics/recipes/01-basics/electrostatic-planar/setup.siml",
-    "crates/sim-lib-femm-physics/recipes/book.toml",
-    "crates/sim-lib-femm-post/recipes/01-basics/chapter.toml",
-    "crates/sim-lib-femm-post/recipes/01-basics/energy-query/purpose.md",
-    "crates/sim-lib-femm-post/recipes/01-basics/energy-query/recipe.toml",
-    "crates/sim-lib-femm-post/recipes/01-basics/energy-query/setup.siml",
-    "crates/sim-lib-femm-post/recipes/book.toml",
-    "crates/sim-lib-femm-prelude/recipes/01-basics/chapter.toml",
-    "crates/sim-lib-femm-prelude/recipes/01-basics/prelude-stack/purpose.md",
-    "crates/sim-lib-femm-prelude/recipes/01-basics/prelude-stack/recipe.toml",
-    "crates/sim-lib-femm-prelude/recipes/01-basics/prelude-stack/setup.siml",
-    "crates/sim-lib-femm-prelude/recipes/book.toml",
-    "crates/sim-lib-femm-sensitiv/recipes/01-basics/chapter.toml",
-    "crates/sim-lib-femm-sensitiv/recipes/01-basics/direct-gap/purpose.md",
-    "crates/sim-lib-femm-sensitiv/recipes/01-basics/direct-gap/recipe.toml",
-    "crates/sim-lib-femm-sensitiv/recipes/01-basics/direct-gap/setup.siml",
-    "crates/sim-lib-femm-sensitiv/recipes/book.toml",
-    "crates/sim-lib-femm-solve/recipes/01-basics/chapter.toml",
-    "crates/sim-lib-femm-solve/recipes/01-basics/sparse-lu/purpose.md",
-    "crates/sim-lib-femm-solve/recipes/01-basics/sparse-lu/recipe.toml",
-    "crates/sim-lib-femm-solve/recipes/01-basics/sparse-lu/setup.siml",
-    "crates/sim-lib-femm-solve/recipes/book.toml",
-    "crates/sim-lib-femm-space/recipes/01-basics/chapter.toml",
-    "crates/sim-lib-femm-space/recipes/01-basics/planar-space/purpose.md",
-    "crates/sim-lib-femm-space/recipes/01-basics/planar-space/recipe.toml",
-    "crates/sim-lib-femm-space/recipes/01-basics/planar-space/setup.siml",
-    "crates/sim-lib-femm-space/recipes/book.toml",
-    "crates/sim-lib-femm-tape/recipes/01-basics/chapter.toml",
-    "crates/sim-lib-femm-tape/recipes/01-basics/one-solve-tape/purpose.md",
-    "crates/sim-lib-femm-tape/recipes/01-basics/one-solve-tape/recipe.toml",
-    "crates/sim-lib-femm-tape/recipes/01-basics/one-solve-tape/setup.siml",
-    "crates/sim-lib-femm-tape/recipes/book.toml"
-  ]
+    {
+      "id": "browse/catalog",
+      "kind": "browse-root",
+      "owner": "workspace",
+      "summary": "root browse catalog"
+    },
+    {
+      "id": "cookbook/femm-assembly",
+      "kind": "cookbook-recipe",
+      "owner": "sim-lib-femm-assembly",
+      "summary": "Tiny element assembly descriptors."
+    },
+    {
+      "id": "cookbook/femm-codec",
+      "kind": "cookbook-recipe",
+      "owner": "sim-lib-femm-codec",
+      "summary": "FEMM descriptor codec round-trip examples."
+    },
+    {
+      "id": "cookbook/femm-core",
+      "kind": "cookbook-recipe",
+      "owner": "sim-lib-femm-core",
+      "summary": "Core FEMM model, parameter, and limit descriptors."
+    },
+    {
+      "id": "cookbook/femm-field",
+      "kind": "cookbook-recipe",
+      "owner": "sim-lib-femm-field",
+      "summary": "Field projection descriptors."
+    },
+    {
+      "id": "cookbook/femm-fixtures",
+      "kind": "cookbook-recipe",
+      "owner": "sim-lib-femm-fixtures",
+      "summary": "Small reference FEMM fixture descriptors."
+    },
+    {
+      "id": "cookbook/femm-flow",
+      "kind": "cookbook-recipe",
+      "owner": "sim-lib-femm-flow",
+      "summary": "Descriptor-level FEMM pipeline examples."
+    },
+    {
+      "id": "cookbook/femm-function",
+      "kind": "cookbook-recipe",
+      "owner": "sim-lib-femm-function",
+      "summary": "FEMM output function descriptors."
+    },
+    {
+      "id": "cookbook/femm-geometry",
+      "kind": "cookbook-recipe",
+      "owner": "sim-lib-femm-geometry",
+      "summary": "Geometry descriptor and artifact-reference examples."
+    },
+    {
+      "id": "cookbook/femm-material",
+      "kind": "cookbook-recipe",
+      "owner": "sim-lib-femm-material",
+      "summary": "Material property descriptors."
+    },
+    {
+      "id": "cookbook/femm-mesh",
+      "kind": "cookbook-recipe",
+      "owner": "sim-lib-femm-mesh",
+      "summary": "Small mesh descriptors and artifact references."
+    },
+    {
+      "id": "cookbook/femm-ode",
+      "kind": "cookbook-recipe",
+      "owner": "sim-lib-femm-ode",
+      "summary": "ODE projection descriptors for FEMM quantities."
+    },
+    {
+      "id": "cookbook/femm-physics",
+      "kind": "cookbook-recipe",
+      "owner": "sim-lib-femm-physics",
+      "summary": "Physics and formulation descriptors."
+    },
+    {
+      "id": "cookbook/femm-post",
+      "kind": "cookbook-recipe",
+      "owner": "sim-lib-femm-post",
+      "summary": "Post-processing quantity descriptors."
+    },
+    {
+      "id": "cookbook/femm-prelude",
+      "kind": "cookbook-recipe",
+      "owner": "sim-lib-femm-prelude",
+      "summary": "Default FEMM stack loading descriptors."
+    },
+    {
+      "id": "cookbook/femm-query",
+      "kind": "cookbook-recipe",
+      "owner": "sim-lib-femm-query",
+      "summary": "Shared FEMM model query callables."
+    },
+    {
+      "id": "cookbook/femm-sensitiv",
+      "kind": "cookbook-recipe",
+      "owner": "sim-lib-femm-sensitiv",
+      "summary": "Sensitivity path and variable descriptors."
+    },
+    {
+      "id": "cookbook/femm-solve",
+      "kind": "cookbook-recipe",
+      "owner": "sim-lib-femm-solve",
+      "summary": "Small linear solve descriptors."
+    },
+    {
+      "id": "cookbook/femm-space",
+      "kind": "cookbook-recipe",
+      "owner": "sim-lib-femm-space",
+      "summary": "Element-space and formulation descriptors."
+    },
+    {
+      "id": "cookbook/femm-tape",
+      "kind": "cookbook-recipe",
+      "owner": "sim-lib-femm-tape",
+      "summary": "Solve tape and artifact-reference descriptors."
+    },
+    {
+      "id": "registry/catalog",
+      "kind": "browse-registry",
+      "owner": "workspace",
+      "summary": "registry catalog browse card"
+    }
+  ],
+  "generator": "xtask repo-contract v1"
 }

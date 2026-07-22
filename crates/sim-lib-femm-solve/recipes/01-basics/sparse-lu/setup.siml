@@ -1,1 +1,8 @@
-(quote (#(femm/Solve v1 "sparse-lu" "stable:femm/matrix/citizen") max-iters 1))
+(expr:map
+  [kind femm/sparse-lu-solve]
+  [operation solve-linear-system]
+  [solve "#(femm/Solve v1 \"sparse-lu\" \"stable:femm/matrix/citizen\")"]
+  [matrix stable:femm/matrix/citizen]
+  [max-iters 1]
+  [behavior fail-closed]
+  [mode modeled])

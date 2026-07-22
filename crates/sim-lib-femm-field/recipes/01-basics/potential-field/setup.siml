@@ -1,1 +1,8 @@
-(quote (#(femm/Field v1 1 "potential") projection potential))
+(expr:map
+  [kind femm/potential-field]
+  [operation project-field]
+  [fixture femm-fixtures/parallel-plate-capacitor]
+  [field "#(femm/Field v1 1 \"potential\")"]
+  [projection potential]
+  [sample-points [[0 0] [1 0]]]
+  [mode modeled])

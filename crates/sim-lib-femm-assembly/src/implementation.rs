@@ -10,7 +10,7 @@ use std::time::Instant;
 use sim_kernel::{Cx, Symbol};
 use sim_lib_femm_core::{CsrMatrix, FemmError, FemmLimits, FemmResult, ParamSet};
 use sim_lib_femm_geometry::eval_expr_f64;
-use sim_lib_femm_material::{BoundaryKind, Material};
+use sim_lib_femm_material::{Boundary, BoundaryKind, Material};
 use sim_lib_femm_mesh::{FemmModel, MeshedModel};
 use sim_lib_femm_space::ElementGeom;
 use sim_lib_numbers_ad::{Dual, Scalarish};
@@ -194,6 +194,8 @@ pub fn assemble_system<F: PhysicsFront>(
             limits.max_elements
         )));
     }
+    meshed.validate_against(model)?;
+    require_supported_boundaries(model)?;
     let n = meshed.mesh.xy.len();
     let mut dense = vec![vec![0.0; n]; n];
     let mut residual = vec![0.0; n];
@@ -209,13 +211,12 @@ pub fn assemble_system<F: PhysicsFront>(
             .elem_region
             .get(elem_index)
             .cloned()
-            .unwrap_or_else(|| Symbol::new("region"));
+            .ok_or_else(|| {
+                FemmError::InvalidGeometry(format!("element {elem_index} has no region label"))
+            })?;
         let material = model
-            .materials
-            .iter()
-            .find(|material| material.name == region)
+            .material_for_region(&region)
             .cloned()
-            .or_else(|| model.materials.first().cloned())
             .ok_or_else(|| FemmError::MissingMaterial(region.to_string()))?;
         let coeff = coeff_eval(cx, model, &meshed.params, region, material)?;
         front.validate_coeff(&coeff)?;
@@ -307,7 +308,14 @@ fn source_density(
                 current,
                 ..
             } if src == region => {
-                eval_expr_f64(cx, turns, params, &[])? * eval_expr_f64(cx, current, params, &[])?
+                let value = eval_expr_f64(cx, turns, params, &[])?
+                    * eval_expr_f64(cx, current, params, &[])?;
+                if !value.is_finite() {
+                    return Err(FemmError::InvalidGeometry(
+                        "non-finite circuit coil source".to_owned(),
+                    ));
+                }
+                value
             }
             _ => 0.0,
         };
@@ -332,6 +340,24 @@ fn dense_to_csr(dense: &[Vec<f64>]) -> FemmResult<CsrMatrix> {
     CsrMatrix::new(rowptr, colind, vals)
 }
 
+fn require_supported_boundaries(model: &FemmModel) -> FemmResult<()> {
+    for boundary in &model.boundaries {
+        require_supported_boundary(boundary)?;
+    }
+    Ok(())
+}
+
+fn require_supported_boundary(boundary: &Boundary) -> FemmResult<()> {
+    if boundary.kind == BoundaryKind::Dirichlet {
+        Ok(())
+    } else {
+        Err(FemmError::InvalidGeometry(format!(
+            "unsupported boundary kind {}",
+            boundary.kind
+        )))
+    }
+}
+
 fn apply_dirichlet_conditions(
     model: &FemmModel,
     meshed: &MeshedModel,
@@ -339,9 +365,7 @@ fn apply_dirichlet_conditions(
     residual: &mut [f64],
 ) -> FemmResult<()> {
     for boundary in &model.boundaries {
-        if boundary.kind != BoundaryKind::Dirichlet {
-            continue;
-        }
+        require_supported_boundary(boundary)?;
         for (a, b, name) in &meshed.mesh.edge_boundary {
             if name != &boundary.name {
                 continue;
@@ -353,7 +377,7 @@ fn apply_dirichlet_conditions(
                         dense.len()
                     )));
                 }
-                let value = boundary_value(boundary, &meshed.params);
+                let value = boundary_value(boundary, &meshed.params)?;
                 for row in 0..dense.len() {
                     if row != node {
                         residual[row] -= dense[row][node] * value;
@@ -371,315 +395,17 @@ fn apply_dirichlet_conditions(
     Ok(())
 }
 
-fn boundary_value(boundary: &sim_lib_femm_material::Boundary, params: &ParamSet) -> f64 {
+fn boundary_value(
+    boundary: &sim_lib_femm_material::Boundary,
+    params: &ParamSet,
+) -> FemmResult<f64> {
     let mut cx = Cx::new(
         std::sync::Arc::new(sim_kernel::EagerPolicy),
         std::sync::Arc::new(sim_kernel::DefaultFactory),
     );
-    eval_expr_f64(&mut cx, &boundary.value, params, &[]).unwrap_or(0.0)
+    eval_expr_f64(&mut cx, &boundary.value, params, &[])
 }
 
 #[cfg(test)]
-mod tests {
-    use std::sync::Arc;
-
-    use sim_kernel::{DefaultFactory, EagerPolicy};
-    use sim_kernel::{Expr, Symbol};
-    use sim_lib_femm_core::{Formulation, LengthUnit, ParamRole, ParamSpec, PhysicsKind, StableId};
-    use sim_lib_femm_geometry::{BlockLabel2, Geometry2, dummy_origin};
-    use sim_lib_femm_material::{Boundary, BoundaryKind, Material, MeshPolicy};
-    use sim_lib_femm_mesh::{FemMesh2, FemmModel, MeshedModel};
-
-    use super::*;
-
-    fn test_cx() -> Cx {
-        Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory))
-    }
-
-    struct PoissonFront;
-
-    impl PhysicsFront for PoissonFront {
-        fn kind(&self) -> sim_lib_femm_core::PhysicsKind {
-            PhysicsKind::Electrostatic
-        }
-
-        fn element_residual<S: Scalarish>(
-            &self,
-            elem: &ElementGeom,
-            u_e: [S; 3],
-            _coeff: &CoeffEval,
-        ) -> [S; 3] {
-            let grad_u = [
-                elem.grad
-                    .iter()
-                    .zip(u_e)
-                    .map(|(grad, u)| S::from_f64(grad[0]) * u)
-                    .fold(S::from_f64(0.0), |acc, x| acc + x),
-                elem.grad
-                    .iter()
-                    .zip(u_e)
-                    .map(|(grad, u)| S::from_f64(grad[1]) * u)
-                    .fold(S::from_f64(0.0), |acc, x| acc + x),
-            ];
-            std::array::from_fn(|i| {
-                let dot = grad_u[0] * S::from_f64(elem.grad[i][0])
-                    + grad_u[1] * S::from_f64(elem.grad[i][1]);
-                dot * S::from_f64(elem.area)
-            })
-        }
-    }
-
-    fn num(text: &str) -> Expr {
-        sim_value::build::num_q(Some("numbers"), "f64", text)
-    }
-
-    fn model() -> FemmModel {
-        FemmModel {
-            id: StableId(1),
-            name: Symbol::new("poisson"),
-            physics: PhysicsKind::Electrostatic,
-            formulation: Formulation::Planar,
-            length_unit: LengthUnit::Meter,
-            depth: None,
-            frequency_hz: None,
-            inputs: vec![ParamSpec {
-                name: Symbol::new("x"),
-                default: None,
-                unit: None,
-                role: ParamRole::Design,
-            }],
-            geometry: Geometry2 {
-                labels: vec![BlockLabel2 {
-                    name: Symbol::new("air"),
-                    at: [num("0.1"), num("0.1")],
-                    material: Symbol::new("air"),
-                }],
-                ..Geometry2::default()
-            },
-            materials: vec![Material {
-                name: Symbol::new("air"),
-                mu_r: Some(num("1.0")),
-                nu_of_b2: None,
-                epsilon_r: Some(num("1.0")),
-                sigma: None,
-                thermal_k: Some(num("1.0")),
-                heat_source: None,
-                remanence: None,
-            }],
-            boundaries: vec![Boundary {
-                name: Symbol::new("wall"),
-                kind: BoundaryKind::Dirichlet,
-                value: num("0.0"),
-            }],
-            sources: Vec::new(),
-            outputs: Vec::new(),
-            mesh_policy: MeshPolicy {
-                kind: Symbol::new("det"),
-                max_area: None,
-                min_angle_deg: None,
-            },
-            solve_policy: None,
-            origin: dummy_origin(),
-        }
-    }
-
-    #[test]
-    fn one_triangle_matrix_is_symmetric() {
-        let mut cx = test_cx();
-        let meshed = MeshedModel {
-            model_id: StableId(1),
-            params: ParamSet::default(),
-            mesh: FemMesh2 {
-                xy: vec![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
-                tri: vec![[0, 1, 2]],
-                elem_region: vec![Symbol::new("air")],
-                edge_boundary: Vec::new(),
-            },
-            diagnostics: Vec::new(),
-        };
-        let assembled = assemble_system(
-            &mut cx,
-            &PoissonFront,
-            &model(),
-            &meshed,
-            &FemmLimits::default(),
-        )
-        .unwrap();
-        let dense = assembled.k.to_dense();
-        assert!((dense[0][1] - dense[1][0]).abs() < 1.0e-12);
-    }
-
-    #[test]
-    fn dirichlet_elimination_pins_dof() {
-        let mut cx = test_cx();
-        let meshed = MeshedModel {
-            model_id: StableId(1),
-            params: ParamSet::default(),
-            mesh: FemMesh2 {
-                xy: vec![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
-                tri: vec![[0, 1, 2]],
-                elem_region: vec![Symbol::new("air")],
-                edge_boundary: vec![(0, 1, Symbol::new("wall"))],
-            },
-            diagnostics: Vec::new(),
-        };
-        let assembled = assemble_system(
-            &mut cx,
-            &PoissonFront,
-            &model(),
-            &meshed,
-            &FemmLimits::default(),
-        )
-        .unwrap();
-        let dense = assembled.k.to_dense();
-        assert_eq!(dense[0][0], 1.0);
-        assert_eq!(dense[0][1], 0.0);
-    }
-
-    struct LinearOnlyFront;
-
-    impl PhysicsFront for LinearOnlyFront {
-        fn kind(&self) -> sim_lib_femm_core::PhysicsKind {
-            PhysicsKind::Magnetostatic
-        }
-
-        fn element_residual<S: Scalarish>(
-            &self,
-            _elem: &ElementGeom,
-            _u_e: [S; 3],
-            _coeff: &CoeffEval,
-        ) -> [S; 3] {
-            std::array::from_fn(|_| S::from_f64(0.0))
-        }
-
-        fn validate_coeff(&self, coeff: &CoeffEval) -> FemmResult<()> {
-            if coeff.nonlinear_bh {
-                return Err(FemmError::UnsupportedPhysics(
-                    "nonlinear B-H not supported".to_owned(),
-                ));
-            }
-            Ok(())
-        }
-    }
-
-    #[test]
-    fn coeff_eval_flags_nonlinear_bh_and_front_fails_closed() {
-        // A material carrying `nu_of_b2` must surface as `nonlinear_bh` so a
-        // linear-only front can reject it instead of silently solving linearly.
-        let mut cx = test_cx();
-        let mut model = model();
-        model.materials[0].nu_of_b2 = Some(num("0.02"));
-        let meshed = MeshedModel {
-            model_id: StableId(1),
-            params: ParamSet::default(),
-            mesh: FemMesh2 {
-                xy: vec![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
-                tri: vec![[0, 1, 2]],
-                elem_region: vec![Symbol::new("air")],
-                edge_boundary: Vec::new(),
-            },
-            diagnostics: Vec::new(),
-        };
-        let result = assemble_system(
-            &mut cx,
-            &LinearOnlyFront,
-            &model,
-            &meshed,
-            &FemmLimits::default(),
-        );
-        assert!(matches!(result, Err(FemmError::UnsupportedPhysics(_))));
-    }
-
-    #[test]
-    fn linear_material_still_assembles() {
-        let mut cx = test_cx();
-        let meshed = MeshedModel {
-            model_id: StableId(1),
-            params: ParamSet::default(),
-            mesh: FemMesh2 {
-                xy: vec![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
-                tri: vec![[0, 1, 2]],
-                elem_region: vec![Symbol::new("air")],
-                edge_boundary: Vec::new(),
-            },
-            diagnostics: Vec::new(),
-        };
-        assert!(
-            assemble_system(
-                &mut cx,
-                &LinearOnlyFront,
-                &model(),
-                &meshed,
-                &FemmLimits::default(),
-            )
-            .is_ok()
-        );
-    }
-
-    #[test]
-    fn out_of_range_boundary_node_errors_without_panic() {
-        // A boundary edge naming a node index past the mesh must fail closed
-        // rather than panic on the dense-matrix scatter.
-        let mut cx = test_cx();
-        let meshed = MeshedModel {
-            model_id: StableId(1),
-            params: ParamSet::default(),
-            mesh: FemMesh2 {
-                xy: vec![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
-                tri: vec![[0, 1, 2]],
-                elem_region: vec![Symbol::new("air")],
-                edge_boundary: vec![(0, 99, Symbol::new("wall"))],
-            },
-            diagnostics: Vec::new(),
-        };
-        let result = assemble_system(
-            &mut cx,
-            &PoissonFront,
-            &model(),
-            &meshed,
-            &FemmLimits::default(),
-        );
-        assert!(matches!(result, Err(FemmError::InvalidGeometry(_))));
-    }
-
-    #[test]
-    fn axisymmetric_assembly_uses_radial_weight() {
-        let mut cx = test_cx();
-        let mut axisym = model();
-        axisym.formulation = Formulation::Axisymmetric;
-        let meshed = MeshedModel {
-            model_id: StableId(1),
-            params: ParamSet::default(),
-            mesh: FemMesh2 {
-                xy: vec![[1.0, 0.0], [2.0, 0.0], [1.0, 1.0]],
-                tri: vec![[0, 1, 2]],
-                elem_region: vec![Symbol::new("air")],
-                edge_boundary: Vec::new(),
-            },
-            diagnostics: Vec::new(),
-        };
-        let planar = assemble_system(
-            &mut cx,
-            &PoissonFront,
-            &model(),
-            &meshed,
-            &FemmLimits::default(),
-        )
-        .unwrap()
-        .k
-        .to_dense();
-        let weighted = assemble_system(
-            &mut cx,
-            &PoissonFront,
-            &axisym,
-            &meshed,
-            &FemmLimits::default(),
-        )
-        .unwrap()
-        .k
-        .to_dense();
-        let ratio = weighted[0][0] / planar[0][0];
-        let expected = 2.0 * std::f64::consts::PI * (4.0 / 3.0);
-        assert!((ratio - expected).abs() < 1.0e-12);
-    }
-}
+#[path = "implementation_tests.rs"]
+mod tests;

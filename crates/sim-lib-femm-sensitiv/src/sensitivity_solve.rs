@@ -1,9 +1,9 @@
 use sim_kernel::{Cx, Symbol};
 use sim_lib_femm_core::{FemmError, FemmLimits, FemmResult, Formulation, ParamSet, PhysicsKind};
-use sim_lib_femm_function::{ModelCallable, resolve_excitation};
 use sim_lib_femm_material::{Boundary, BoundaryKind, Material, Source};
 use sim_lib_femm_mesh::{FemMesh2, FemmModel};
 use sim_lib_femm_post::QuantitySpec;
+use sim_lib_femm_query::{ModelCallable, resolve_excitation, resolve_model_params};
 use sim_lib_femm_solve::{DenseFallbackSolver, solve_steady};
 use sim_lib_numbers_ad::Dual;
 
@@ -47,7 +47,7 @@ pub(crate) fn built_in_quantity_gradient(
     params: ParamSet,
     wrt: &[Symbol],
 ) -> FemmResult<Vec<(Symbol, f64)>> {
-    let params = resolve_params(&callable.model, params);
+    let params = resolve_model_params(&callable.model, params)?;
     let excitation = resolve_excitation(cx, &callable.model, &params, spec)?;
     wrt.iter()
         .map(|symbol| {
@@ -64,18 +64,6 @@ pub(crate) fn built_in_quantity_gradient(
             quantity_derivative(cx, &diff, spec, &excitation).map(|value| (symbol.clone(), value))
         })
         .collect()
-}
-
-fn resolve_params(model: &FemmModel, params: ParamSet) -> ParamSet {
-    let mut entries = params.entries;
-    for input in &model.inputs {
-        if entries.iter().all(|(name, _)| name != &input.name)
-            && let Some(default) = &input.default
-        {
-            entries.push((input.name.clone(), default.clone()));
-        }
-    }
-    ParamSet::new(entries)
 }
 
 fn differentiate_solution(
@@ -114,6 +102,14 @@ fn assemble_derivative(
     wrt: &Symbol,
     diff_mesh: &DiffMesh,
 ) -> FemmResult<AssemblyDerivative> {
+    diff_mesh.mesh.validate()?;
+    if diff_mesh.dxy.len() != diff_mesh.mesh.xy.len() {
+        return Err(FemmError::InvalidGeometry(format!(
+            "differentiated mesh has {} derivative nodes but {} mesh nodes",
+            diff_mesh.dxy.len(),
+            diff_mesh.mesh.xy.len()
+        )));
+    }
     let n = diff_mesh.mesh.xy.len();
     let mut assembly = AssemblyDerivative::new(n);
     for (elem_index, tri) in diff_mesh.mesh.tri.iter().copied().enumerate() {
@@ -123,13 +119,12 @@ fn assemble_derivative(
             .elem_region
             .get(elem_index)
             .cloned()
-            .unwrap_or_else(|| Symbol::new("region"));
+            .ok_or_else(|| {
+                FemmError::InvalidGeometry(format!("element {elem_index} has no region label"))
+            })?;
         let material = model
-            .materials
-            .iter()
-            .find(|material| material.name == region)
+            .material_for_region(&region)
             .cloned()
-            .or_else(|| model.materials.first().cloned())
             .ok_or_else(|| FemmError::MissingMaterial(region.to_string()))?;
         let coeff = coeff_eval_dual(cx, model, params, wrt, &region, &material)?;
         let measure = elem.area * axisymmetric_weight(&elem, &model.formulation)?;
@@ -206,13 +201,14 @@ fn source_density(
                     turns,
                     current,
                     ..
-                } if src == region => {
+                } if src == region => finite_dual(
                     eval_expr_dual(cx, turns, params, Some(wrt), &[])?
-                        * eval_expr_dual(cx, current, params, Some(wrt), &[])?
-                }
+                        * eval_expr_dual(cx, current, params, Some(wrt), &[])?,
+                    "non-finite circuit coil source",
+                )?,
                 _ => Dual::cst(0.0),
             };
-            Ok(acc + contribution)
+            finite_dual(acc + contribution, "non-finite source density")
         })
 }
 
@@ -279,19 +275,37 @@ fn boundary_value(
 }
 
 pub(crate) fn dual_geom(diff_mesh: &DiffMesh, tri: [u32; 3]) -> FemmResult<DualGeom> {
-    let xy = std::array::from_fn(|local| {
+    diff_mesh.mesh.validate()?;
+    if diff_mesh.dxy.len() != diff_mesh.mesh.xy.len() {
+        return Err(FemmError::InvalidGeometry(format!(
+            "differentiated mesh has {} derivative nodes but {} mesh nodes",
+            diff_mesh.dxy.len(),
+            diff_mesh.mesh.xy.len()
+        )));
+    }
+    let mut xy = [[Dual::cst(0.0); 2]; 3];
+    for local in 0..3 {
         let index = tri[local] as usize;
-        [
+        let point = diff_mesh.mesh.xy.get(index).ok_or_else(|| {
+            FemmError::InvalidGeometry(format!("triangle node {} out of range", tri[local]))
+        })?;
+        let dpoint = diff_mesh.dxy.get(index).ok_or_else(|| {
+            FemmError::InvalidGeometry(format!(
+                "triangle node {} has no coordinate derivative",
+                tri[local]
+            ))
+        })?;
+        xy[local] = [
             Dual {
-                v: diff_mesh.mesh.xy[index][0],
-                d: [diff_mesh.dxy[index][0]],
+                v: point[0],
+                d: [dpoint[0]],
             },
             Dual {
-                v: diff_mesh.mesh.xy[index][1],
-                d: [diff_mesh.dxy[index][1]],
+                v: point[1],
+                d: [dpoint[1]],
             },
-        ]
-    });
+        ];
+    }
     let area2 = (xy[1][0] - xy[0][0]) * (xy[2][1] - xy[0][1])
         - (xy[2][0] - xy[0][0]) * (xy[1][1] - xy[0][1]);
     let area = abs_dual(area2) * Dual::cst(0.5);
@@ -352,5 +366,13 @@ fn floor_dual(value: Dual<1>, floor: f64) -> Dual<1> {
         value
     } else {
         Dual::cst(floor)
+    }
+}
+
+fn finite_dual(value: Dual<1>, context: &str) -> FemmResult<Dual<1>> {
+    if value.v.is_finite() && value.d.iter().all(|derivative| derivative.is_finite()) {
+        Ok(value)
+    } else {
+        Err(FemmError::SensitivityUnavailable(context.to_owned()))
     }
 }

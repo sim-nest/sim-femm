@@ -1,9 +1,8 @@
 #![forbid(unsafe_code)]
-//! FEMM models cast as ODE/DAE right-hand sides for time integration.
+//! FEMM models cast as ODE right-hand sides and DAE residual contracts.
 //!
-//! Defines the model-backed right-hand side and the DAE residual interface
-//! that let a solved model drive a time-dependent system through the
-//! sim-numbers ODE solvers.
+//! Defines the model-backed right-hand side used by sim-numbers ODE solvers
+//! and the residual trait that host implicit solvers consume.
 
 use std::sync::{Arc, Mutex};
 
@@ -14,19 +13,24 @@ use sim_kernel::{
     Factory, Lib, LibManifest, LibTarget, Linker, Object, RawArgs, Result as KernelResult, Symbol,
     Value, Version,
 };
-use sim_lib_femm_core::{CsrMatrix, FemmError, FemmResult};
+use sim_lib_femm_core::{CsrMatrix, FemmError, FemmResult, normalize_femm_expr};
 use sim_lib_femm_function::ModelValue;
 use sim_lib_femm_mesh::FemmModel;
 use sim_lib_femm_post::{FemmSolution, QuantitySpec};
 use sim_lib_femm_tape::SolveTape;
 use sim_lib_numbers_func::Func;
 
-/// A FEMM model cast as the right-hand side of a first-order ODE/DAE system.
+/// A FEMM model cast as the right-hand side of a first-order ODE system.
 ///
 /// Each evaluation maps the current state vector onto FEMM parameters, solves
 /// the model (reusing the [`SolveTape`] cache), reads any required post-processed
 /// quantities, and evaluates the state-derivative expressions. See the
 /// [crate README](https://github.com/sim/sim-femm).
+///
+/// The input side is intentionally expression-based: material laws, boundary
+/// values, and ODE right-hand-side formulas are evaluated as [`Expr`] values in
+/// the FEMM parameter environment. The output side is a sim-numbers [`Func`],
+/// which is the boundary consumed by numeric methods such as `ode-solve`.
 ///
 /// # Examples
 ///
@@ -43,20 +47,20 @@ use sim_lib_numbers_func::Func;
 ///     canonical: text.to_owned(),
 /// });
 /// // dx/dt = v, dv/dt = -4 x: a harmonic state equation, ignoring the model field.
-/// let rhs = FemmOdeRhs {
-///     model: parallel_plate_capacitor(),
-///     state_vars: vec![Symbol::new("x"), Symbol::new("v")],
-///     param_map: Vec::new(),
-///     need: Vec::new(),
-///     rhs: vec![
+/// let rhs = FemmOdeRhs::new(
+///     parallel_plate_capacitor(),
+///     vec![Symbol::new("x"), Symbol::new("v")],
+///     Vec::new(),
+///     Vec::new(),
+///     vec![
 ///         Expr::Symbol(Symbol::new("v")),
 ///         Expr::Call {
 ///             operator: Box::new(Expr::Symbol(Symbol::new("*"))),
 ///             args: vec![num("-4.0"), Expr::Symbol(Symbol::new("x"))],
 ///         },
 ///     ],
-///     tape: Arc::new(Mutex::new(SolveTape::default())),
-/// };
+///     Arc::new(Mutex::new(SolveTape::default())),
+/// ).unwrap();
 /// let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
 /// let func = cx.factory().opaque(Arc::new(rhs.as_func())).unwrap();
 /// let out = cx
@@ -93,6 +97,10 @@ pub struct FemmOdeRhs {
 ///
 /// Implementors return the residual `F(t, z, zdot)` whose root advances the
 /// coupled state, with an optional analytic Jacobian for Newton solves.
+///
+/// NOTE: [`FemmOdeLib`] registers the explicit `femm/as-ode-rhs` adapter for
+/// sim-numbers ODE solvers. This trait is the host-solver contract for implicit
+/// DAE integrations; this crate registers no implicit DAE solver export.
 pub trait DaeResidual {
     /// Returns the DAE residual `F(t, z, zdot)` at the given time and state.
     fn residual(&self, cx: &mut Cx, t: &Value, z: &Value, zdot: &Value) -> KernelResult<Value>;
@@ -110,10 +118,40 @@ pub trait DaeResidual {
 }
 
 impl FemmOdeRhs {
+    /// Builds a validated model-backed ODE right-hand side.
+    ///
+    /// The state variable list must be non-empty and duplicate-free. The right
+    /// hand side may be a scalar derivative or a vector whose arity matches the
+    /// function variables directly or after an explicit independent variable.
+    pub fn new(
+        model: FemmModel,
+        state_vars: Vec<Symbol>,
+        param_map: Vec<(Symbol, Symbol)>,
+        need: Vec<QuantitySpec>,
+        rhs: Vec<Expr>,
+        tape: Arc<Mutex<SolveTape>>,
+    ) -> FemmResult<Self> {
+        validate_ode_shape(&state_vars, &param_map, &rhs)?;
+        let rhs = rhs
+            .iter()
+            .map(normalize_femm_expr)
+            .collect::<FemmResult<Vec<_>>>()?;
+        Ok(Self {
+            model,
+            state_vars,
+            param_map,
+            need,
+            rhs,
+            tape,
+        })
+    }
+
     /// Compiles this model-backed right-hand side into a callable sim-numbers [`Func`].
     ///
-    /// The resulting function takes the state vector and returns the list of
-    /// state derivatives, solving the model and reading needed quantities per call.
+    /// The resulting function takes the state vector and returns derivatives,
+    /// solving the model and reading needed quantities per call. A one-state
+    /// RHS returns the scalar derivative directly for sim-numbers `ode-solve`;
+    /// a multi-state RHS returns the derivative list.
     pub fn as_func(&self) -> Func {
         let model = self.model.clone();
         let state_vars = self.state_vars.clone();
@@ -163,7 +201,7 @@ impl FemmOdeRhs {
                         )?,
                     ));
                 }
-                let values =
+                let mut values =
                     rhs.iter()
                         .map(|expr| {
                             sim_lib_femm_geometry::eval_expr_f64(cx, expr, &rhs_params, &[])
@@ -180,10 +218,64 @@ impl FemmOdeRhs {
                         })
                         .collect::<FemmResult<Vec<_>>>()
                         .map_err(sim_kernel::Error::from)?;
-                cx.factory().list(values)
+                if values.len() == 1 {
+                    Ok(values.remove(0))
+                } else {
+                    cx.factory().list(values)
+                }
             }),
         )
     }
+}
+
+fn validate_ode_shape(
+    state_vars: &[Symbol],
+    param_map: &[(Symbol, Symbol)],
+    rhs: &[Expr],
+) -> FemmResult<()> {
+    if state_vars.is_empty() {
+        return Err(invalid_ode_shape("state variable list must not be empty"));
+    }
+    if rhs.is_empty() {
+        return Err(invalid_ode_shape("RHS expression list must not be empty"));
+    }
+    let scalar_or_direct_vector = rhs.len() == 1 || rhs.len() == state_vars.len();
+    let time_plus_vector = rhs.len().checked_add(1) == Some(state_vars.len());
+    if !scalar_or_direct_vector && !time_plus_vector {
+        return Err(invalid_ode_shape(format!(
+            "RHS arity {} does not match state arity {}",
+            rhs.len(),
+            state_vars.len()
+        )));
+    }
+    let mut seen_states: Vec<&Symbol> = Vec::with_capacity(state_vars.len());
+    for state in state_vars {
+        if seen_states.contains(&state) {
+            return Err(invalid_ode_shape(format!(
+                "duplicate ODE state variable {state}"
+            )));
+        }
+        seen_states.push(state);
+    }
+    let mut seen_params: Vec<&Symbol> = Vec::with_capacity(param_map.len());
+    for (param, state) in param_map {
+        if seen_params.contains(&param) {
+            return Err(invalid_ode_shape(format!(
+                "duplicate ODE parameter-map entry for {param}"
+            )));
+        }
+        if !state_vars.iter().any(|known| known == state) {
+            return Err(invalid_ode_shape(format!(
+                "ODE parameter-map entry for {param} references unknown state {state}"
+            )));
+        }
+        seen_params.push(param);
+    }
+    Ok(())
+}
+
+fn invalid_ode_shape(message: impl Into<String>) -> FemmError {
+    FemmError::InvalidGeometry(format!("invalid ODE RHS shape: {}", message.into()))
 }
 
 fn cached_solution(
@@ -306,18 +398,19 @@ impl Callable for FemmAsOdeRhsFunction {
             .ok_or_else(|| Error::Eval("expected FEMM model value".to_owned()))?;
         let state_vars = parse_symbol_list(cx, state)?;
         let rhs = parse_expr_list(cx, rhs)?;
-        let func = FemmOdeRhs {
+        let func = FemmOdeRhs::new(
             model,
-            state_vars: state_vars.clone(),
-            param_map: state_vars
+            state_vars.clone(),
+            state_vars
                 .iter()
                 .cloned()
                 .map(|symbol| (symbol.clone(), symbol))
                 .collect(),
-            need: Vec::new(),
+            Vec::new(),
             rhs,
-            tape: Arc::new(Mutex::new(SolveTape::default())),
-        }
+            Arc::new(Mutex::new(SolveTape::default())),
+        )
+        .map_err(sim_kernel::Error::from)?
         .as_func();
         cx.factory().opaque(Arc::new(func))
     }
@@ -353,58 +446,5 @@ fn parse_expr_list(cx: &mut Cx, value: &Value) -> KernelResult<Vec<Expr>> {
     match value.object().as_expr(cx)? {
         Expr::List(items) | Expr::Vector(items) => Ok(items),
         _ => Err(Error::Eval("expected expression list".to_owned())),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::sync::Arc;
-
-    use sim_kernel::{Args, DefaultFactory, EagerPolicy, Expr};
-    use sim_lib_femm_fixtures::parallel_plate_capacitor;
-
-    use super::*;
-
-    fn num(text: &str) -> Expr {
-        sim_value::build::num_q(Some("numbers"), "f64", text)
-    }
-
-    #[test]
-    fn mock_force_rhs_reproduces_linear_state_equations() {
-        let rhs = FemmOdeRhs {
-            model: parallel_plate_capacitor(),
-            state_vars: vec![Symbol::new("x"), Symbol::new("v")],
-            param_map: Vec::new(),
-            need: Vec::new(),
-            rhs: vec![
-                Expr::Symbol(Symbol::new("v")),
-                Expr::Call {
-                    operator: Box::new(Expr::Symbol(Symbol::new("*"))),
-                    args: vec![num("-4.0"), Expr::Symbol(Symbol::new("x"))],
-                },
-            ],
-            tape: Arc::new(Mutex::new(SolveTape::default())),
-        };
-        let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
-        let value = cx
-            .call_value(
-                cx.factory().opaque(Arc::new(rhs.as_func())).unwrap(),
-                Args::new(vec![
-                    cx.factory()
-                        .number_literal(Symbol::qualified("numbers", "f64"), "0.5".to_owned())
-                        .unwrap(),
-                    cx.factory()
-                        .number_literal(Symbol::qualified("numbers", "f64"), "0.25".to_owned())
-                        .unwrap(),
-                ]),
-            )
-            .unwrap();
-        let expr = value.object().as_expr(&mut cx).unwrap();
-        let Expr::List(items) = expr else {
-            panic!("expected list output");
-        };
-        assert_eq!(items.len(), 2);
-        assert_eq!(items[0], num("0.25"));
-        assert_eq!(items[1], num("-2"));
     }
 }

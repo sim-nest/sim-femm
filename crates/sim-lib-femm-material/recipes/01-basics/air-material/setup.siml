@@ -1,1 +1,7 @@
-(quote (#(femm/Material v1 "air" ("epsilon-r" "mu-r")) material-table))
+(expr:map
+  [kind femm/air-material]
+  [operation material-table]
+  [material "#(femm/Material v1 \"air\" (\"epsilon-r\" \"mu-r\"))"]
+  [properties [epsilon-r "1" mu-r "1"]]
+  [fixture femm-fixtures/parallel-plate-capacitor]
+  [mode modeled])

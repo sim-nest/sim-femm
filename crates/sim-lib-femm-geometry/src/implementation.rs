@@ -6,7 +6,7 @@
 //! mesher consumes.
 
 use sim_kernel::{Cx, Expr, Origin, Symbol};
-use sim_lib_femm_core::{FemmResult, ParamSet};
+use sim_lib_femm_core::{FemmError, FemmResult, ParamSet};
 
 /// Re-export the shared expression evaluator so existing callers of
 /// `sim_lib_femm_geometry::eval_expr_f64` keep compiling. The implementation
@@ -136,6 +136,17 @@ pub struct LoweredGeometry2 {
 }
 
 impl Geometry2 {
+    /// Validates that every analytic region has implemented lowering semantics.
+    ///
+    /// Unsupported region variants fail before any coordinates are evaluated so
+    /// primal and sensitivity lowering share the same fail-closed contract.
+    pub fn validate_supported(&self) -> FemmResult<()> {
+        for region in &self.analytic {
+            require_supported_region(region)?;
+        }
+        Ok(())
+    }
+
     /// Resolves all symbolic coordinates and expands analytic regions.
     ///
     /// Evaluates every coordinate [`Expr`] against `params` via
@@ -169,6 +180,7 @@ impl Geometry2 {
     /// assert_eq!(lowered.labels.len(), 1);
     /// ```
     pub fn lower(&self, cx: &mut Cx, params: &ParamSet) -> FemmResult<LoweredGeometry2> {
+        self.validate_supported()?;
         let mut lowered = LoweredGeometry2::default();
         for node in &self.nodes {
             lowered.nodes.push([
@@ -256,10 +268,21 @@ impl Geometry2 {
                         ));
                     }
                 }
-                AnalyticRegion2::OuterBox { .. } => {}
+                AnalyticRegion2::OuterBox { .. } => unreachable!("validated before lowering"),
             }
         }
         Ok(lowered)
+    }
+}
+
+fn require_supported_region(region: &AnalyticRegion2) -> FemmResult<()> {
+    match region {
+        AnalyticRegion2::Rect { .. }
+        | AnalyticRegion2::Circle { .. }
+        | AnalyticRegion2::Polygon { .. } => Ok(()),
+        AnalyticRegion2::OuterBox { name, .. } => Err(FemmError::InvalidGeometry(format!(
+            "unsupported analytic region OuterBox {name}"
+        ))),
     }
 }
 
@@ -342,5 +365,20 @@ mod tests {
         )
         .unwrap_err();
         assert!(matches!(err, FemmError::UnknownFemmParameter(_)));
+    }
+
+    #[test]
+    fn outer_box_is_rejected_before_coordinate_evaluation() {
+        let mut cx = test_cx();
+        let geometry = Geometry2 {
+            analytic: vec![AnalyticRegion2::OuterBox {
+                name: Symbol::new("air"),
+                margin: Expr::Symbol(Symbol::new("missing")),
+                boundary: Symbol::new("open"),
+            }],
+            ..Geometry2::default()
+        };
+        let err = geometry.lower(&mut cx, &ParamSet::default()).unwrap_err();
+        assert!(matches!(err, FemmError::InvalidGeometry(_)));
     }
 }

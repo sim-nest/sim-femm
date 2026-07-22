@@ -3,7 +3,7 @@ name = "sim-lib-femm-function"
 version = "0.1.2"
 edition = "2024"
 license = "MPL-2.0"
-description = "SIM workspace package for sim lib femm function."
+description = "Callable FEMM model functions for quantities, fields, solutions, and quality evidence."
 readme = "README.md"
 publish = true
 repository = "https://github.com/sim-nest/sim-femm"
@@ -22,8 +22,13 @@ sim-lib-femm-geometry = { version = "0.1.0", path = "../sim-lib-femm-geometry" }
 sim-lib-femm-material = { version = "0.1.0", path = "../sim-lib-femm-material" }
 sim-lib-femm-mesh = { version = "0.1.0", path = "../sim-lib-femm-mesh" }
 sim-lib-femm-post = { version = "0.1.0", path = "../sim-lib-femm-post" }
+sim-lib-femm-query = { version = "0.1.0", path = "../sim-lib-femm-query" }
+sim-lib-femm-sensitiv = { version = "0.1.0", path = "../sim-lib-femm-sensitiv" }
 sim-lib-femm-solve = { version = "0.1.0", path = "../sim-lib-femm-solve" }
 sim-lib-numbers-func = { version = "0.1.0" }
+
+[dev-dependencies]
+sim-lib-numbers-numeric = { version = "0.1.0" }
 
 [build-dependencies]
 sim-cookbook = { version = "0.1.0" }
