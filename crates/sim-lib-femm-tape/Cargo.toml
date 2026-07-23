@@ -17,8 +17,8 @@ sim-lib-femm-flow = { version = "0.1.0", path = "../sim-lib-femm-flow" }
 sim-lib-femm-geometry = { version = "0.1.0", path = "../sim-lib-femm-geometry" }
 sim-lib-femm-material = { version = "0.1.0", path = "../sim-lib-femm-material" }
 sim-lib-femm-mesh = { version = "0.1.0", path = "../sim-lib-femm-mesh" }
-sim-lib-femm-post = { version = "0.1.0", path = "../sim-lib-femm-post" }
-sim-lib-femm-solve = { version = "0.1.0", path = "../sim-lib-femm-solve" }
+sim-lib-femm-post = { version = "0.1.3", path = "../sim-lib-femm-post" }
+sim-lib-femm-solve = { version = "0.1.2", path = "../sim-lib-femm-solve" }
 
 [build-dependencies]
 sim-cookbook = { version = "0.1.0" }
