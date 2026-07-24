@@ -32,3 +32,13 @@ homepage = "https://github.com/sim-nest/sim-femm"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
+
+[patch.crates-io]
+sim-lib-numbers-tensor = { git = "https://github.com/sim-nest/sim-numbers", rev = "1713431936f6c0d9517dbb9af4b4515da2bb6c2d" }
+sim-lib-numbers-tensor-bcast = { git = "https://github.com/sim-nest/sim-numbers", rev = "1713431936f6c0d9517dbb9af4b4515da2bb6c2d" }
+sim-lib-numbers-tensor-bit = { git = "https://github.com/sim-nest/sim-numbers", rev = "1713431936f6c0d9517dbb9af4b4515da2bb6c2d" }
+sim-lib-numbers-tensor-cmplxf = { git = "https://github.com/sim-nest/sim-numbers", rev = "1713431936f6c0d9517dbb9af4b4515da2bb6c2d" }
+sim-lib-numbers-tensor-f64 = { git = "https://github.com/sim-nest/sim-numbers", rev = "1713431936f6c0d9517dbb9af4b4515da2bb6c2d" }
+sim-lib-numbers-tensor-i64 = { git = "https://github.com/sim-nest/sim-numbers", rev = "1713431936f6c0d9517dbb9af4b4515da2bb6c2d" }
+sim-lib-numbers-tensor-linalg = { git = "https://github.com/sim-nest/sim-numbers", rev = "1713431936f6c0d9517dbb9af4b4515da2bb6c2d" }
+sim-lib-numbers-tensor-rat64 = { git = "https://github.com/sim-nest/sim-numbers", rev = "1713431936f6c0d9517dbb9af4b4515da2bb6c2d" }

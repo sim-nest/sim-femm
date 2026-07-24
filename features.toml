@@ -72,10 +72,46 @@ claims_specimens = [
   "spec-test/sim-femm/crates/sim-lib-femm-core/src/implementation/tests",
 ]
 
+[[feature]]
+id = "feature/sim-femm/linear-solvers"
+title = "FEMM linear solvers"
+summary = "Provide FEMM linear solver contracts, factor handles, dense fallback, iterative CG and BiCGSTAB kernels, and solve certificates."
+owner = "crate/sim-lib-femm-solve"
+audiences = ["code", "framework"]
+guidance = "Use this row when selecting or extending FEMM solve backends. Keep matrix validation in sim-lib-femm-core and certificate evidence in sim-lib-femm-solve."
+claims_anchors = [
+  "anchor/crate/sim-lib-femm-core",
+  "anchor/crate/sim-lib-femm-solve",
+  "anchor/rustdoc/sim-lib-femm-core/csr-matrix",
+  "anchor/rustdoc/sim-lib-femm-solve/bicgstab_solve",
+  "anchor/rustdoc/sim-lib-femm-solve/certificate_claim",
+  "anchor/rustdoc/sim-lib-femm-solve/cg_solve",
+  "anchor/rustdoc/sim-lib-femm-solve/dense-fallback-solver",
+  "anchor/rustdoc/sim-lib-femm-solve/factor-handle",
+  "anchor/rustdoc/sim-lib-femm-solve/linear-method",
+  "anchor/rustdoc/sim-lib-femm-solve/linear-solver",
+  "anchor/rustdoc/sim-lib-femm-solve/solve-certificate",
+  "anchor/rustdoc/sim-lib-femm-solve/solve-export-record",
+  "anchor/rustdoc/sim-lib-femm-solve/solve_steady",
+  "anchor/rustdoc/sim-lib-femm-solve/steady-solve",
+]
+claims_specimens = [
+  "spec-test/sim-femm/crates/sim-lib-femm-solve/src/implementation",
+]
+
 [[route]]
 id = "route/add-femm-domain-helper"
 task = "Add a FEMM domain helper"
 audiences = ["code", "framework"]
 steps = [
   { feature = "feature/sim-femm/femm-domain-stack", why = "The FEMM row owns mesh, field, material, solve, and ODE helpers." },
+]
+
+[[route]]
+id = "route/add-femm-linear-solver"
+task = "Add a FEMM linear solver"
+audiences = ["code", "framework"]
+steps = [
+  { feature = "feature/sim-femm/linear-solvers", why = "The linear solver row owns solver contracts, factor handles, iterative kernels, and certificate evidence." },
+  { specimen = "spec-test/sim-femm/crates/sim-lib-femm-solve/src/implementation", why = "The checked implementation specimen proves solver reuse metadata and residual evidence for certificates." },
 ]

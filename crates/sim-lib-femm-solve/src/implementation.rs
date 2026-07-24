@@ -438,6 +438,17 @@ mod tests {
         assert!((out[0] - 5.0).abs() < 1.0e-8);
     }
 
+    // conformance: FEMM linear solvers expose residual evidence for certificates.
+    #[test]
+    fn linear_solver_residual_norm_tracks_certificate_basis() {
+        let rhs = [15.0, 10.0, 10.0];
+        let matrix = spd_matrix();
+        let x = cg_solve(&matrix, &rhs, 1.0e-10, 64).unwrap();
+        let residual = dense_residual_norm(&matrix.to_dense().unwrap(), &x, &rhs).unwrap();
+
+        assert!(residual < 1.0e-8);
+    }
+
     #[test]
     fn dense_fallback_rejects_malformed_and_singular_systems() {
         let err = DenseFallbackSolver::dense_solve(&[vec![1.0]], &[1.0, 2.0]).unwrap_err();
