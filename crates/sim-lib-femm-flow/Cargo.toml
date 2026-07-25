@@ -13,8 +13,8 @@ homepage = "https://github.com/sim-nest/sim-femm"
 sim-cookbook = { version = "0.1.0" }
 sim-kernel = { version = "0.1.0" }
 sim-lib-femm-core = { version = "0.1.0", path = "../sim-lib-femm-core" }
-sim-lib-numbers-func = { version = "0.1.0" }
-sim-lib-numbers-numeric = { version = "0.1.0" }
+sim-lib-numbers-func = { version = "0.2.0" }
+sim-lib-numbers-numeric = { version = "0.2.0" }
 
 [build-dependencies]
 sim-cookbook = { version = "0.1.0" }

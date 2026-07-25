@@ -22,7 +22,7 @@ sim-lib-femm-mesh = { version = "0.1.2", path = "../sim-lib-femm-mesh" }
 sim-lib-femm-physics = { version = "0.1.0", path = "../sim-lib-femm-physics" }
 sim-lib-femm-post = { version = "0.1.3", path = "../sim-lib-femm-post" }
 sim-lib-femm-space = { version = "0.1.0", path = "../sim-lib-femm-space" }
-sim-lib-numbers-ad = { version = "0.1.0" }
+sim-lib-numbers-ad = { version = "0.2.0" }
 
 [build-dependencies]
 sim-cookbook = { version = "0.1.0" }
