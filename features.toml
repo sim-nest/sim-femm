@@ -75,10 +75,10 @@ claims_specimens = [
 [[feature]]
 id = "feature/sim-femm/linear-solvers"
 title = "FEMM linear solvers"
-summary = "Provide FEMM linear solver contracts, factor handles, dense fallback, iterative CG and BiCGSTAB kernels, and solve certificates."
+summary = "Provide FEMM linear solver contracts, opaque LinearFactor handles, dense fallback, iterative CG and BiCGSTAB kernels, and solve certificates."
 owner = "crate/sim-lib-femm-solve"
 audiences = ["code", "framework"]
-guidance = "Use this row when selecting or extending FEMM solve backends. Keep matrix validation in sim-lib-femm-core and certificate evidence in sim-lib-femm-solve."
+guidance = "Use this row when selecting or extending FEMM solve backends. Export provider solvers as the femm/linear-solver value, keep factor payloads opaque behind LinearFactor, keep matrix validation in sim-lib-femm-core, and keep certificate evidence in sim-lib-femm-solve."
 claims_anchors = [
   "anchor/crate/sim-lib-femm-core",
   "anchor/crate/sim-lib-femm-solve",
@@ -89,14 +89,16 @@ claims_anchors = [
   "anchor/rustdoc/sim-lib-femm-solve/dense-fallback-solver",
   "anchor/rustdoc/sim-lib-femm-solve/factor-handle",
   "anchor/rustdoc/sim-lib-femm-solve/linear-method",
+  "anchor/rustdoc/sim-lib-femm-solve/linear-factor",
   "anchor/rustdoc/sim-lib-femm-solve/linear-solver",
+  "anchor/rustdoc/sim-lib-femm-solve/linear-solver-value",
   "anchor/rustdoc/sim-lib-femm-solve/solve-certificate",
   "anchor/rustdoc/sim-lib-femm-solve/solve-export-record",
   "anchor/rustdoc/sim-lib-femm-solve/solve_steady",
   "anchor/rustdoc/sim-lib-femm-solve/steady-solve",
 ]
 claims_specimens = [
-  "spec-test/sim-femm/crates/sim-lib-femm-solve/src/implementation",
+  "spec-test/sim-femm/crates/sim-lib-femm-solve/src/implementation/tests",
 ]
 
 [[route]]
@@ -113,5 +115,5 @@ task = "Add a FEMM linear solver"
 audiences = ["code", "framework"]
 steps = [
   { feature = "feature/sim-femm/linear-solvers", why = "The linear solver row owns solver contracts, factor handles, iterative kernels, and certificate evidence." },
-  { specimen = "spec-test/sim-femm/crates/sim-lib-femm-solve/src/implementation", why = "The checked implementation specimen proves solver reuse metadata and residual evidence for certificates." },
+  { specimen = "spec-test/sim-femm/crates/sim-lib-femm-solve/src/implementation/tests", why = "The checked implementation specimen proves solver reuse metadata and residual evidence for certificates." },
 ]

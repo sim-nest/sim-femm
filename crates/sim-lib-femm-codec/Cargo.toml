@@ -1,6 +1,6 @@
 [package]
 name = "sim-lib-femm-codec"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 license = "MPL-2.0"
 description = "Codec descriptors and read-construct forms for FEMM model, solution, and field values."
@@ -14,13 +14,13 @@ sim-cookbook = { version = "0.1.0" }
 sim-citizen = { version = "0.1.0" }
 sim-citizen-derive = { version = "0.1.0" }
 sim-kernel = { version = "0.1.0" }
-sim-lib-femm-core = { version = "0.1.0", path = "../sim-lib-femm-core" }
+sim-lib-femm-core = { version = "0.2.0", path = "../sim-lib-femm-core" }
 sim-lib-femm-field = { version = "0.1.0", path = "../sim-lib-femm-field" }
-sim-lib-femm-fixtures = { version = "0.1.0", path = "../sim-lib-femm-fixtures" }
-sim-lib-femm-flow = { version = "0.1.0", path = "../sim-lib-femm-flow" }
+sim-lib-femm-fixtures = { version = "0.1.2", path = "../sim-lib-femm-fixtures" }
+sim-lib-femm-flow = { version = "0.2.0", path = "../sim-lib-femm-flow" }
 sim-lib-femm-function = { version = "0.1.0", path = "../sim-lib-femm-function" }
-sim-lib-femm-mesh = { version = "0.1.0", path = "../sim-lib-femm-mesh" }
-sim-lib-femm-post = { version = "0.1.0", path = "../sim-lib-femm-post" }
+sim-lib-femm-mesh = { version = "0.2.0", path = "../sim-lib-femm-mesh" }
+sim-lib-femm-post = { version = "0.2.0", path = "../sim-lib-femm-post" }
 
 [dev-dependencies]
 sim-kernel = { version = "0.1", features = ["test-support"] }
@@ -30,8 +30,8 @@ sim-codec-binary = { version = "0.1.0" }
 sim-codec-binary-base64 = { version = "0.1.0" }
 sim-codec-json = { version = "0.1.0" }
 sim-codec-lisp = { version = "0.1.0" }
-sim-lib-femm-material = { version = "0.1.0", path = "../sim-lib-femm-material" }
-sim-lib-femm-solve = { version = "0.1.0", path = "../sim-lib-femm-solve" }
+sim-lib-femm-material = { version = "0.2.0", path = "../sim-lib-femm-material" }
+sim-lib-femm-solve = { version = "0.2.0", path = "../sim-lib-femm-solve" }
 
 [build-dependencies]
 sim-cookbook = { version = "0.1.0" }

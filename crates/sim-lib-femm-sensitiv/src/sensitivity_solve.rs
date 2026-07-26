@@ -4,7 +4,9 @@ use sim_lib_femm_material::{Boundary, BoundaryKind, Material, Source};
 use sim_lib_femm_mesh::{FemMesh2, FemmModel};
 use sim_lib_femm_post::QuantitySpec;
 use sim_lib_femm_query::{ModelCallable, resolve_excitation, resolve_model_params};
-use sim_lib_femm_solve::{DenseFallbackSolver, solve_steady};
+use sim_lib_femm_solve::{
+    DenseFallbackSolver, FactorHandle, LinearSolver, linear_solver_from_cx, solve_steady,
+};
 use sim_lib_numbers_ad::Dual;
 
 use crate::expr_eval::eval_expr_dual;
@@ -87,7 +89,9 @@ fn differentiate_solution(
             -(assembly.dresidual[row] + dk_u)
         })
         .collect::<Vec<_>>();
-    let du = solve_dense_regularized(&assembly.dense, &rhs)?;
+    let dense_fallback = DenseFallbackSolver;
+    let solver = linear_solver_from_cx(cx)?.unwrap_or(&dense_fallback);
+    let du = solve_factor_or_dense_regularized(solver, &solved.factor, &assembly.dense, &rhs)?;
     Ok(DiffSolution {
         solution: solved.solution,
         du,
@@ -346,6 +350,21 @@ fn solve_dense_regularized(matrix: &[Vec<f64>], rhs: &[f64]) -> FemmResult<Vec<f
                 row[index] += 1.0e-9;
             }
             DenseFallbackSolver::dense_solve(&shifted, rhs)
+        }
+        Err(err) => Err(err),
+    }
+}
+
+fn solve_factor_or_dense_regularized(
+    solver: &dyn LinearSolver,
+    factor: &FactorHandle,
+    matrix: &[Vec<f64>],
+    rhs: &[f64],
+) -> FemmResult<Vec<f64>> {
+    match solver.solve(factor, rhs) {
+        Ok(out) => Ok(out),
+        Err(FemmError::SolveDidNotConverge(_)) if DenseFallbackSolver.can_reuse(factor) => {
+            solve_dense_regularized(matrix, rhs)
         }
         Err(err) => Err(err),
     }

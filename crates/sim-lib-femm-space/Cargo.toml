@@ -1,6 +1,6 @@
 [package]
 name = "sim-lib-femm-space"
-version = "0.1.2"
+version = "0.2.0"
 edition = "2024"
 license = "MPL-2.0"
 description = "Function-space and element-geometry helpers for FEMM meshes."
@@ -12,8 +12,8 @@ homepage = "https://github.com/sim-nest/sim-femm"
 [dependencies]
 sim-cookbook = { version = "0.1.0" }
 sim-kernel = { version = "0.1.0" }
-sim-lib-femm-core = { version = "0.1.0", path = "../sim-lib-femm-core" }
-sim-lib-femm-mesh = { version = "0.1.0", path = "../sim-lib-femm-mesh" }
+sim-lib-femm-core = { version = "0.2.0", path = "../sim-lib-femm-core" }
+sim-lib-femm-mesh = { version = "0.2.0", path = "../sim-lib-femm-mesh" }
 
 [build-dependencies]
 sim-cookbook = { version = "0.1.0" }
