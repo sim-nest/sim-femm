@@ -98,7 +98,7 @@ claims_anchors = [
   "anchor/rustdoc/sim-lib-femm-solve/steady-solve",
 ]
 claims_specimens = [
-  "spec-test/sim-femm/crates/sim-lib-femm-solve/src/implementation",
+  "spec-test/sim-femm/crates/sim-lib-femm-solve/src/implementation/tests",
 ]
 
 [[route]]
@@ -115,5 +115,5 @@ task = "Add a FEMM linear solver"
 audiences = ["code", "framework"]
 steps = [
   { feature = "feature/sim-femm/linear-solvers", why = "The linear solver row owns solver contracts, factor handles, iterative kernels, and certificate evidence." },
-  { specimen = "spec-test/sim-femm/crates/sim-lib-femm-solve/src/implementation", why = "The checked implementation specimen proves solver reuse metadata and residual evidence for certificates." },
+  { specimen = "spec-test/sim-femm/crates/sim-lib-femm-solve/src/implementation/tests", why = "The checked implementation specimen proves solver reuse metadata and residual evidence for certificates." },
 ]
