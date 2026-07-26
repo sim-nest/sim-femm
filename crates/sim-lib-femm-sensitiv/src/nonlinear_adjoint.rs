@@ -7,7 +7,10 @@ use sim_lib_femm_material::BoundaryKind;
 use sim_lib_femm_mesh::{DeterministicMesher, FemmModel, Mesher};
 use sim_lib_femm_post::{Excitation, FemmSolution, QuantitySpec, quantity};
 use sim_lib_femm_query::{ModelCallable, resolve_excitation};
-use sim_lib_femm_solve::{DenseFallbackSolver, GradientTrust, SteadySolve, solve_steady};
+use sim_lib_femm_solve::{
+    DenseFallbackSolver, GradientTrust, LinearSolver, SteadySolve, linear_solver_from_cx,
+    solve_steady,
+};
 use sim_lib_femm_space::ElementGeom;
 
 const ADJOINT_VERIFY_TOL: f64 = 1.0e-4;
@@ -63,7 +66,11 @@ pub(crate) fn nonlinear_adjoint_gradient(
     }
     let jacobian = assemble_param_jacobian(cx, callable, solve, params, wrt)?;
     let excitation = resolve_excitation(cx, &callable.model, params, quantity_spec)?;
-    if let Some(gradient) = exact_nonlinear_adjoint(solve, quantity_spec, &jacobian, &excitation)? {
+    let dense_fallback = DenseFallbackSolver;
+    let solver = linear_solver_from_cx(cx)?.unwrap_or(&dense_fallback);
+    if let Some(gradient) =
+        exact_nonlinear_adjoint(solver, solve, quantity_spec, &jacobian, &excitation)?
+    {
         return Ok((
             gradient,
             GradientTrust::AdjointVerified {
@@ -126,6 +133,7 @@ pub(crate) fn assemble_param_jacobian(
 }
 
 fn exact_nonlinear_adjoint(
+    solver: &dyn LinearSolver,
     solve: &SteadySolve,
     quantity_spec: &QuantitySpec,
     jacobian: &ParamJacobian,
@@ -134,8 +142,7 @@ fn exact_nonlinear_adjoint(
     let Some(dq_du) = quantity_state_derivative(&solve.solution, quantity_spec)? else {
         return Ok(None);
     };
-    let transpose = transpose(&solve.factor.dense);
-    let Ok(lambda) = solve_dense_regularized(&transpose, &dq_du) else {
+    let Ok(lambda) = solver.solve_transpose(&solve.factor, &dq_du) else {
         return Ok(None);
     };
     let mut gradient = Vec::with_capacity(jacobian.columns.len());
@@ -335,33 +342,6 @@ fn verified_against_fd(adjoint: &[f64], finite_difference: &[f64]) -> bool {
             .iter()
             .zip(finite_difference)
             .all(|(adjoint, fd)| (adjoint - fd).abs() <= ADJOINT_VERIFY_TOL * fd.abs().max(1.0))
-}
-
-fn solve_dense_regularized(matrix: &[Vec<f64>], rhs: &[f64]) -> FemmResult<Vec<f64>> {
-    match DenseFallbackSolver::dense_solve(matrix, rhs) {
-        Ok(out) => Ok(out),
-        Err(FemmError::SolveDidNotConverge(_)) => {
-            let mut shifted = matrix.to_vec();
-            for (index, row) in shifted.iter_mut().enumerate() {
-                row[index] += 1.0e-9;
-            }
-            DenseFallbackSolver::dense_solve(&shifted, rhs)
-        }
-        Err(err) => Err(err),
-    }
-}
-
-fn transpose(matrix: &[Vec<f64>]) -> Vec<Vec<f64>> {
-    if matrix.is_empty() {
-        return Vec::new();
-    }
-    let mut out = vec![vec![0.0; matrix.len()]; matrix[0].len()];
-    for (row, values) in matrix.iter().enumerate() {
-        for (col, value) in values.iter().enumerate() {
-            out[col][row] = *value;
-        }
-    }
-    out
 }
 
 fn replace_param(

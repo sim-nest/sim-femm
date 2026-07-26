@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use sim_kernel::{Cx, DefaultFactory, Factory, Symbol};
+use sim_kernel::{Cx, Symbol};
 use sim_lib_femm_assembly::{AssembledSystem, CoeffEval, PhysicsFront, assemble_system};
 use sim_lib_femm_core::{FemmError, FemmLimits, FemmResult, ParamSet, PhysicsKind, StableId};
 use sim_lib_femm_flow::{FemmSolveEvent, PtcOptions, SolveDiagnostics, ptc_solve_report};
@@ -21,9 +21,9 @@ use sim_lib_femm_space::ElementGeom;
 use sim_lib_numbers_ad::Scalarish;
 
 use crate::{
-    DenseFallbackSolver, FactorHandle, LinearMethod, SolveCertificate,
+    DenseFallbackSolver, FactorHandle, LinearSolver, SolveCertificate,
     certificate::{make_linear_certificate, make_ptc_certificate},
-    implementation::dense_residual_norm,
+    implementation::linear_solver_from_cx,
 };
 
 const DIRECT_RESIDUAL_TOL: f64 = 1.0e-8;
@@ -79,14 +79,16 @@ pub fn solve_steady(
             assemble_system(cx, &MagneticsHarmonicFront, model, &meshed, limits)?
         }
     };
-    let factor = reuse_or_factor(&assembled, cached_factor)?;
+    let dense_fallback = DenseFallbackSolver;
+    let solver = linear_solver_from_cx(cx)?.unwrap_or(&dense_fallback);
+    let factor = reuse_or_factor(&assembled, cached_factor, solver)?;
     let rhs = assembled.r.iter().map(|value| -value).collect::<Vec<_>>();
-    let DenseSolveReport {
+    let LinearSolveReport {
         x: u,
         final_residual,
         method,
-    } = solve_dense_checked(&factor.dense, &rhs)?;
-    let solve_id = StableId(model.id.0 ^ params.fingerprint(cx).0 ^ factor.matrix_fingerprint.0);
+    } = solve_linear_checked(&assembled.k, solver, &factor, &rhs)?;
+    let solve_id = StableId(model.id.0 ^ params.fingerprint(cx).0 ^ factor.matrix_fingerprint().0);
     let solution = FemmSolution {
         id: solve_id,
         model_id: model.id,
@@ -132,8 +134,10 @@ fn solve_nonlinear_ptc(
     meshed: sim_lib_femm_mesh::MeshedModel,
 ) -> FemmResult<SteadySolve> {
     let assembled = assemble_system(cx, &PtcMagnetostaticFront, model, &meshed, limits)?;
-    let factor = reuse_or_factor(&assembled, cached_factor)?;
-    let dense = factor.dense.clone();
+    let dense_fallback = DenseFallbackSolver;
+    let solver = linear_solver_from_cx(cx)?.unwrap_or(&dense_fallback);
+    let factor = reuse_or_factor(&assembled, cached_factor, solver)?;
+    let dense = assembled.k.to_dense()?;
     let residual_offset = assembled.r.clone();
     let initial = ptc_initial_state(assembled.k.rows());
     let options = PtcOptions {
@@ -142,7 +146,7 @@ fn solve_nonlinear_ptc(
         max_steps: limits.max_solve_iters,
         freeze_jacobian: true,
     };
-    let solve_id = StableId(model.id.0 ^ params.fingerprint(cx).0 ^ factor.matrix_fingerprint.0);
+    let solve_id = StableId(model.id.0 ^ params.fingerprint(cx).0 ^ factor.matrix_fingerprint().0);
     match ptc_solve_report(initial, &options, |u| {
         Ok((linear_residual(&dense, &residual_offset, u), dense.clone()))
     }) {
@@ -300,52 +304,100 @@ impl PhysicsFront for PtcMagnetostaticFront {
 fn reuse_or_factor(
     assembled: &AssembledSystem,
     cached_factor: Option<&FactorHandle>,
+    solver: &dyn LinearSolver,
 ) -> FemmResult<FactorHandle> {
     let matrix_fingerprint = assembled.k.fingerprint();
     if let Some(handle) = cached_factor
-        && handle.matrix_fingerprint == matrix_fingerprint
+        && handle.matrix_fingerprint() == matrix_fingerprint
+        && solver.can_reuse(handle)
     {
-        return Ok(handle.clone());
+        return Ok(handle.clone().reused());
     }
-    Ok(FactorHandle {
-        method: LinearMethod::SparseLu,
-        matrix_fingerprint,
-        payload: DefaultFactory
-            .string("dense-factor".to_owned())
-            .map_err(|err| sim_lib_femm_core::FemmError::SolveDidNotConverge(err.to_string()))?,
-        dense: assembled.k.to_dense()?,
-    })
+    solver.factor(&assembled.k)
 }
 
-struct DenseSolveReport {
+struct LinearSolveReport {
     x: Vec<f64>,
     final_residual: f64,
     method: Symbol,
 }
 
-fn solve_dense_checked(matrix: &[Vec<f64>], rhs: &[f64]) -> FemmResult<DenseSolveReport> {
-    let x = DenseFallbackSolver::dense_solve(matrix, rhs)?;
-    let final_residual = dense_residual_norm(matrix, &x, rhs)?;
+fn solve_linear_checked(
+    matrix: &sim_lib_femm_core::CsrMatrix,
+    solver: &dyn LinearSolver,
+    factor: &FactorHandle,
+    rhs: &[f64],
+) -> FemmResult<LinearSolveReport> {
+    if factor.matrix_fingerprint() != matrix.fingerprint() {
+        return Err(FemmError::SolveDidNotConverge(
+            "linear factor fingerprint does not match assembled matrix".to_owned(),
+        ));
+    }
+    let x = solver.solve(factor, rhs)?;
+    let final_residual = csr_residual_norm(matrix, &x, rhs)?;
     if final_residual > DIRECT_RESIDUAL_TOL {
         return Err(FemmError::SolveDidNotConverge(format!(
             "direct residual {final_residual:e} exceeds tolerance"
         )));
     }
-    Ok(DenseSolveReport {
+    Ok(LinearSolveReport {
         x,
         final_residual,
-        method: Symbol::new("femm-direct"),
+        method: method_symbol(factor.method()),
     })
+}
+
+fn method_symbol(method: &crate::LinearMethod) -> Symbol {
+    match method {
+        crate::LinearMethod::Cg => Symbol::new("femm-cg"),
+        crate::LinearMethod::Bicgstab => Symbol::new("femm-bicgstab"),
+        crate::LinearMethod::SparseLu => Symbol::new("femm-direct"),
+        crate::LinearMethod::Provider(symbol) => symbol.clone(),
+    }
+}
+
+fn csr_residual_norm(
+    matrix: &sim_lib_femm_core::CsrMatrix,
+    x: &[f64],
+    rhs: &[f64],
+) -> FemmResult<f64> {
+    let y = matrix.matvec(x)?;
+    if y.len() != rhs.len() {
+        return Err(FemmError::MalformedMatrix(format!(
+            "residual length {} does not match rhs length {}",
+            y.len(),
+            rhs.len()
+        )));
+    }
+    let mut norm_sq = 0.0;
+    for (left, right) in y.iter().zip(rhs) {
+        let residual = left - right;
+        if !residual.is_finite() {
+            return Err(FemmError::SolveDidNotConverge(
+                "non-finite linear residual".to_owned(),
+            ));
+        }
+        norm_sq += residual * residual;
+    }
+    Ok(norm_sq.sqrt())
 }
 
 #[cfg(test)]
 mod tests {
-    use sim_kernel::Expr;
-    use sim_lib_femm_core::{Formulation, LengthUnit, ParamRole, ParamSpec, PhysicsKind};
+    use std::{any::Any, sync::Arc};
+
+    use sim_kernel::{DefaultFactory, Expr, Factory, Object};
+    use sim_lib_femm_core::{
+        CsrMatrix, Formulation, LengthUnit, ParamRole, ParamSpec, PhysicsKind,
+    };
     use sim_lib_femm_geometry::{BlockLabel2, Geometry2, Node2, Segment2, dummy_origin};
     use sim_lib_femm_material::{Boundary, BoundaryKind, Material, MeshPolicy};
 
     use super::*;
+    use crate::{
+        FactorLifecycle, LinearFactor, LinearMethod, LinearSolverValue, TransposeSupport, cg_solve,
+        linear_solver_symbol,
+    };
 
     fn num(text: &str) -> Expr {
         sim_value::build::num_q(Some("numbers"), "f64", text)
@@ -470,6 +522,82 @@ mod tests {
     }
 
     #[test]
+    fn steady_solve_uses_registered_provider_without_dense_factor_payload() {
+        let mut cx = Cx::new(
+            std::sync::Arc::new(sim_kernel::EagerPolicy),
+            std::sync::Arc::new(DefaultFactory),
+        );
+        let provider = LinearSolverValue::new(Arc::new(TestProviderSolver));
+        let value = DefaultFactory.opaque(Arc::new(provider)).unwrap();
+        cx.registry_mut()
+            .register_value(linear_solver_symbol(), value)
+            .unwrap();
+
+        let out = solve_steady(
+            &mut cx,
+            &one_box_model(),
+            &ParamSet::default(),
+            &FemmLimits::default(),
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(
+            out.factor.method(),
+            &LinearMethod::Provider(Symbol::qualified("femm-provider", "csr-cg"))
+        );
+        assert_eq!(out.factor.lifecycle(), FactorLifecycle::Fresh);
+        assert_eq!(out.certificate.method, "femm-provider/csr-cg");
+        assert!(out.certificate.final_residual < DIRECT_RESIDUAL_TOL);
+    }
+
+    #[test]
+    fn cached_factor_reuse_marks_lifecycle_and_rejects_stale_fingerprint() {
+        let mut cx = Cx::new(
+            std::sync::Arc::new(sim_kernel::EagerPolicy),
+            std::sync::Arc::new(DefaultFactory),
+        );
+        let first = solve_steady(
+            &mut cx,
+            &one_box_model(),
+            &ParamSet::default(),
+            &FemmLimits::default(),
+            None,
+        )
+        .unwrap();
+        let reused = solve_steady(
+            &mut cx,
+            &one_box_model(),
+            &ParamSet::default(),
+            &FemmLimits::default(),
+            Some(&first.factor),
+        )
+        .unwrap();
+        assert_eq!(reused.factor.lifecycle(), FactorLifecycle::Reused);
+
+        let stale = FactorHandle::new(LinearFactor {
+            method: LinearMethod::SparseLu,
+            matrix_fingerprint: StableId(0),
+            transpose: TransposeSupport::Supported,
+            lifecycle: FactorLifecycle::Fresh,
+            payload: first.factor.payload().clone(),
+        });
+        let refactored = solve_steady(
+            &mut cx,
+            &one_box_model(),
+            &ParamSet::default(),
+            &FemmLimits::default(),
+            Some(&stale),
+        )
+        .unwrap();
+        assert_eq!(refactored.factor.lifecycle(), FactorLifecycle::Fresh);
+        assert_ne!(
+            refactored.factor.matrix_fingerprint(),
+            stale.matrix_fingerprint()
+        );
+    }
+
+    #[test]
     fn underconstrained_linear_solve_errors_without_regularization() {
         let mut cx = Cx::new(
             std::sync::Arc::new(sim_kernel::EagerPolicy),
@@ -495,4 +623,64 @@ mod tests {
         };
         assert!(message.contains("underconstrained system"));
     }
+
+    struct TestProviderSolver;
+
+    impl LinearSolver for TestProviderSolver {
+        fn factor(&self, k: &CsrMatrix) -> FemmResult<FactorHandle> {
+            Ok(FactorHandle::new(LinearFactor {
+                method: LinearMethod::Provider(Symbol::qualified("femm-provider", "csr-cg")),
+                matrix_fingerprint: k.fingerprint(),
+                transpose: TransposeSupport::ForwardOnly,
+                lifecycle: FactorLifecycle::Fresh,
+                payload: DefaultFactory
+                    .opaque(Arc::new(TestProviderFactor { matrix: k.clone() }))
+                    .map_err(|err| FemmError::SolveDidNotConverge(err.to_string()))?,
+            }))
+        }
+
+        fn can_reuse(&self, factor: &FactorHandle) -> bool {
+            factor
+                .payload()
+                .object()
+                .downcast_ref::<TestProviderFactor>()
+                .is_some()
+        }
+
+        fn solve(&self, f: &FactorHandle, b: &[f64]) -> FemmResult<Vec<f64>> {
+            let matrix = f
+                .payload()
+                .object()
+                .downcast_ref::<TestProviderFactor>()
+                .ok_or_else(|| {
+                    FemmError::SolveDidNotConverge("unexpected provider payload".to_owned())
+                })?
+                .matrix
+                .clone();
+            cg_solve(&matrix, b, 1.0e-10, 64)
+        }
+
+        fn solve_transpose(&self, _f: &FactorHandle, _b: &[f64]) -> FemmResult<Vec<f64>> {
+            Err(FemmError::SensitivityUnavailable(
+                "test provider has no transpose solve".to_owned(),
+            ))
+        }
+    }
+
+    #[derive(Clone)]
+    struct TestProviderFactor {
+        matrix: CsrMatrix,
+    }
+
+    impl Object for TestProviderFactor {
+        fn display(&self, _cx: &mut Cx) -> sim_kernel::Result<String> {
+            Ok("#<test-provider-factor>".to_owned())
+        }
+
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+    }
+
+    impl sim_kernel::ObjectCompat for TestProviderFactor {}
 }

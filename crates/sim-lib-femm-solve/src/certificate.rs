@@ -50,13 +50,14 @@ pub(crate) fn make_linear_certificate(
     cx: &mut Cx,
     solution: &FemmSolution,
 ) -> FemmResult<SolveCertificate> {
+    let method = solution.diagnostics.method.to_string();
     let fingerprint = solution_fingerprint(solution);
     let claim = Claim::content_object(
         cx.datum_store_mut(),
         Ref::Symbol(Symbol::qualified("femm-solve", solution.id.0.to_string())),
         Symbol::qualified("femm", "solve-certificate"),
         certificate_datum(
-            "femm-direct",
+            &method,
             true,
             solution.diagnostics.final_residual,
             1,
@@ -67,7 +68,7 @@ pub(crate) fn make_linear_certificate(
     .map_err(|err| FemmError::SolveDidNotConverge(err.to_string()))?;
 
     Ok(SolveCertificate {
-        method: "femm-direct".to_owned(),
+        method,
         converged: true,
         final_residual: solution.diagnostics.final_residual,
         iterations: 1,

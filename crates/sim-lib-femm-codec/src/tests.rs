@@ -411,11 +411,12 @@ fn num_expr(text: &str) -> Expr {
     })
 }
 
-fn linear_method_name(method: &LinearMethod) -> &'static str {
+fn linear_method_name(method: &LinearMethod) -> String {
     match method {
-        LinearMethod::Cg => "cg",
-        LinearMethod::Bicgstab => "bicgstab",
-        LinearMethod::SparseLu => "sparse-lu",
+        LinearMethod::Cg => "cg".to_owned(),
+        LinearMethod::Bicgstab => "bicgstab".to_owned(),
+        LinearMethod::SparseLu => "sparse-lu".to_owned(),
+        LinearMethod::Provider(symbol) => symbol.to_string(),
     }
 }
 

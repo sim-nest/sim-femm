@@ -19,7 +19,7 @@ This generated lane consumes `docs/generated/sim-index-fragment.sx`. Global inde
 | --- | --- | ---: | --- |
 | `feature/sim-femm/generated-docs` | `crate/xtask` | 0 | Publish generated package, card, rustdoc, and index facts for the FEMM domain crates. |
 | `feature/sim-femm/femm-domain-stack` | `crate/sim-lib-femm-core` | 1 | Collect finite-element mesh, field, material, geometry, solve, post-processing, and ODE helpers into one code-facing domain feature. |
-| `feature/sim-femm/linear-solvers` | `crate/sim-lib-femm-solve` | 1 | Provide FEMM linear solver contracts, factor handles, dense fallback, iterative CG and BiCGSTAB kernels, and solve certificates. |
+| `feature/sim-femm/linear-solvers` | `crate/sim-lib-femm-solve` | 1 | Provide FEMM linear solver contracts, opaque LinearFactor handles, dense fallback, iterative CG and BiCGSTAB kernels, and solve certificates. |
 
 ## Surfaces
 
@@ -213,7 +213,9 @@ Source `crates/sim-lib-femm-solve/src/implementation.rs`:
 //! Defines the linear methods, the factor handle and solver trait, and the
 //! dense fallback solver used when no sparse backend is available.
 
-use sim_kernel::Value;
+use std::{any::Any, sync::Arc};
+
+use sim_kernel::{Cx, Factory, Object, Symbol, Value};
 use sim_lib_femm_core::{CsrMatrix, FemmError, FemmResult, StableId};
 
 const PIVOT_TOL: f64 = 1.0e-12;
@@ -228,23 +230,102 @@ pub enum LinearMethod {
     Bicgstab,
     /// Sparse LU direct factorization.
     SparseLu,
+    /// Provider-supplied solver method.
+    Provider(Symbol),
+}
+
+/// Whether a factor can service transpose solves.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TransposeSupport {
+    /// The factor can solve both `K x = b` and `K^T x = b`.
+    Supported,
+    /// The factor can only solve forward systems.
+    ForwardOnly,
+}
+
+/// Lifecycle state for a reusable linear factor.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FactorLifecycle {
+    /// Built for the current solve.
+    Fresh,
+    /// Reused from a caller-supplied cache.
+    Reused,
+}
+
+/// Opaque typed factor metadata shared by built-in and provider solvers.
+///
+/// The payload is a backend-owned runtime value.  Built-in dense fallback
+/// payloads happen to contain a dense matrix, but provider factors are not
+/// required to expose or materialize one.
+#[derive(Clone, Debug)]
+pub struct LinearFactor {
+    /// Method that produced this factorization.
+    pub method: LinearMethod,
+    /// Fingerprint of the factored matrix, used to validate reuse.
+    pub matrix_fingerprint: StableId,
+    /// Whether this factor supports transpose solves.
+    pub transpose: TransposeSupport,
+    /// Whether this handle was freshly factored or reused.
+    pub lifecycle: FactorLifecycle,
+    /// Backend-specific factor payload as a kernel [`Value`].
+    pub payload: Value,
+}
+
+impl LinearFactor {
+    /// Returns this factor with a different lifecycle marker.
+    pub fn with_lifecycle(mut self, lifecycle: FactorLifecycle) -> Self {
+        self.lifecycle = lifecycle;
+        self
+    }
 }
 
 /// A reusable factorization of one assembled stiffness matrix.
 ///
 /// Carries the method, a fingerprint of the matrix it was built from (so a
-/// solve can reuse it when the matrix is unchanged), an opaque kernel [`Value`]
-/// payload, and the dense factor used by the fallback solver.
+/// solve can reuse it when the matrix is unchanged), transpose support,
+/// lifecycle, and an opaque provider-owned payload.
 #[derive(Clone, Debug)]
 pub struct FactorHandle {
+    /// Opaque typed factor.
+    pub factor: LinearFactor,
+}
+
+impl FactorHandle {
+    /// Builds a factor handle from typed metadata.
+    pub fn new(factor: LinearFactor) -> Self {
+        Self { factor }
+    }
+
     /// Method that produced this factorization.
-    pub method: LinearMethod,
+    pub fn method(&self) -> &LinearMethod {
+        &self.factor.method
+    }
+
     /// Fingerprint of the factored matrix, used to validate reuse.
-    pub matrix_fingerprint: StableId,
+    pub fn matrix_fingerprint(&self) -> StableId {
+        self.factor.matrix_fingerprint
+    }
+
+    /// Whether the factor can service transpose solves.
+    pub fn transpose(&self) -> TransposeSupport {
+        self.factor.transpose
+    }
+
+    /// Whether this factor was freshly built or reused.
+    pub fn lifecycle(&self) -> FactorLifecycle {
+        self.factor.lifecycle
+    }
+
     /// Backend-specific factor payload as a kernel [`Value`].
-    pub payload: Value,
-    /// Dense form of the matrix used by the fallback solver.
-    pub dense: Vec<Vec<f64>>,
+    pub fn payload(&self) -> &Value {
+        &self.factor.payload
+    }
+
+    /// Returns this handle marked as reused.
+    pub fn reused(mut self) -> Self {
+        self.factor.lifecycle = FactorLifecycle::Reused;
+        self
+    }
 }
 
 /// Contract for a pluggable linear-solver backend.
@@ -253,11 +334,66 @@ pub struct FactorHandle {
 /// forward and transpose solves; the latter backs adjoint/sensitivity passes.
 pub trait LinearSolver {
     /// Factor the matrix `k`, returning a reusable handle.
-    fn factor(&mut self, k: &CsrMatrix) -> FemmResult<FactorHandle>;
+    fn factor(&self, k: &CsrMatrix) -> FemmResult<FactorHandle>;
+    /// Returns true when this solver can reuse the supplied factor.
+    fn can_reuse(&self, factor: &FactorHandle) -> bool;
     /// Solve `K x = b` using a prior factorization `f`.
     fn solve(&self, f: &FactorHandle, b: &[f64]) -> FemmResult<Vec<f64>>;
     /// Solve the transpose system `K^T x = b` using factorization `f`.
     fn solve_transpose(&self, f: &FactorHandle, b: &[f64]) -> FemmResult<Vec<f64>>;
+}
+
+/// Symbol used by loadable libraries to export the active FEMM linear solver.
+pub fn linear_solver_symbol() -> Symbol {
+    Symbol::qualified("femm", "linear-solver")
+}
+
+/// Runtime value wrapper for a loadable FEMM linear solver.
+#[derive(Clone)]
+pub struct LinearSolverValue {
+    solver: Arc<dyn LinearSolver + Send + Sync>,
+}
+
+impl LinearSolverValue {
+    /// Wraps a solver so a library can export it as a plain kernel value.
+    pub fn new(solver: Arc<dyn LinearSolver + Send + Sync>) -> Self {
+        Self { solver }
+    }
+
+    /// Borrows the wrapped solver contract.
+    pub fn solver(&self) -> &(dyn LinearSolver + Send + Sync) {
+        self.solver.as_ref()
+    }
+}
+
+impl Object for LinearSolverValue {
+    fn display(&self, _cx: &mut Cx) -> sim_kernel::Result<String> {
+        Ok("#<femm-linear-solver>".to_owned())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl sim_kernel::ObjectCompat for LinearSolverValue {}
+
+/// Returns a loadable solver exported through the active context, if one exists.
+pub fn linear_solver_from_cx(cx: &Cx) -> FemmResult<Option<&(dyn LinearSolver + Send + Sync)>> {
+    let Some(value) = cx.registry().value_by_symbol(&linear_solver_symbol()) else {
+        return Ok(None);
+    };
+    value
+        .object()
+        .downcast_ref::<LinearSolverValue>()
+        .map(|solver| solver.solver())
+        .ok_or_else(|| {
+            FemmError::SolveDidNotConverge(format!(
+                "{} is not a FEMM LinearSolver value",
+                linear_solver_symbol()
+            ))
+        })
+        .map(Some)
 }
 
 /// Dense Gaussian-elimination solver used when no sparse backend is available.
@@ -308,6 +444,79 @@ impl DenseFallbackSolver {
         }
         validate_solution_vector(b, "dense solve")
     }
+}
+
+impl LinearSolver for DenseFallbackSolver {
+    fn factor(&self, k: &CsrMatrix) -> FemmResult<FactorHandle> {
+        let payload = sim_kernel::DefaultFactory
+            .opaque(Arc::new(DenseFactorPayload {
+                matrix: k.to_dense()?,
+            }))
+            .map_err(|err| FemmError::SolveDidNotConverge(err.to_string()))?;
+        Ok(FactorHandle::new(LinearFactor {
+            method: LinearMethod::SparseLu,
+            matrix_fingerprint: k.fingerprint(),
+            transpose: TransposeSupport::Supported,
+            lifecycle: FactorLifecycle::Fresh,
+            payload,
+        }))
+    }
+
+    fn can_reuse(&self, factor: &FactorHandle) -> bool {
+        factor
+            .payload()
+            .object()
+            .downcast_ref::<DenseFactorPayload>()
+            .is_some()
+    }
+
+    fn solve(&self, f: &FactorHandle, b: &[f64]) -> FemmResult<Vec<f64>> {
+        Self::dense_solve(dense_payload(f)?.matrix.as_slice(), b)
+    }
+
+    fn solve_transpose(&self, f: &FactorHandle, b: &[f64]) -> FemmResult<Vec<f64>> {
+        let matrix = transpose_dense(dense_payload(f)?.matrix.as_slice())?;
+        Self::dense_solve(&matrix, b)
+    }
+}
+
+#[derive(Clone, Debug)]
+struct DenseFactorPayload {
+    matrix: Vec<Vec<f64>>,
+}
+
+impl Object for DenseFactorPayload {
+    fn display(&self, _cx: &mut Cx) -> sim_kernel::Result<String> {
+        Ok("#<femm-dense-factor>".to_owned())
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl sim_kernel::ObjectCompat for DenseFactorPayload {}
+
+fn dense_payload(factor: &FactorHandle) -> FemmResult<&DenseFactorPayload> {
+    factor
+        .payload()
+        .object()
+        .downcast_ref::<DenseFactorPayload>()
+        .ok_or_else(|| {
+            FemmError::SolveDidNotConverge("factor payload is not a dense FEMM factor".to_owned())
+        })
+}
+
+fn transpose_dense(matrix: &[Vec<f64>]) -> FemmResult<Vec<Vec<f64>>> {
+    validate_dense_system(matrix, &vec![0.0; matrix.len()])?;
+    let n = matrix.len();
+    let mut transposed = vec![vec![0.0; n]; n];
+    for (row_index, row) in matrix.iter().enumerate() {
+        for (col_index, value) in row.iter().enumerate() {
+            transposed[col_index][row_index] = *value;
+        }
+    }
+    Ok(transposed)
 }
 
 /// Solve a symmetric positive-definite system by conjugate gradient.
@@ -504,6 +713,7 @@ pub(crate) fn validate_dense_system(matrix: &[Vec<f64>], rhs: &[f64]) -> FemmRes
     Ok(())
 }
 
+#[cfg(test)]
 pub(crate) fn dense_residual_norm(matrix: &[Vec<f64>], x: &[f64], rhs: &[f64]) -> FemmResult<f64> {
     validate_dense_system(matrix, rhs)?;
     if x.len() != rhs.len() {
@@ -718,14 +928,36 @@ mod tests {
 
     #[test]
     fn factor_reuse_metadata_matches() {
-        let first = FactorHandle {
+        let first = FactorHandle::new(LinearFactor {
             method: LinearMethod::SparseLu,
             matrix_fingerprint: spd_matrix().fingerprint(),
+            transpose: TransposeSupport::Supported,
+            lifecycle: FactorLifecycle::Fresh,
             payload: payload(),
-            dense: spd_matrix().to_dense().unwrap(),
-        };
+        });
         let second = first.clone();
-        assert_eq!(first.matrix_fingerprint, second.matrix_fingerprint);
+        assert_eq!(first.matrix_fingerprint(), second.matrix_fingerprint());
+        assert_eq!(first.lifecycle(), FactorLifecycle::Fresh);
+        assert_eq!(first.transpose(), TransposeSupport::Supported);
+    }
+
+    #[test]
+    fn dense_fallback_factor_solves_transpose_without_public_dense_field() {
+        let solver = DenseFallbackSolver;
+        let matrix =
+            CsrMatrix::new(vec![0, 2, 4], vec![0, 1, 0, 1], vec![4.0, 1.0, 2.0, 3.0]).unwrap();
+        let factor = solver.factor(&matrix).unwrap();
+
+        assert!(solver.can_reuse(&factor));
+        assert_eq!(factor.method(), &LinearMethod::SparseLu);
+        assert_eq!(factor.matrix_fingerprint(), matrix.fingerprint());
+        assert_eq!(factor.transpose(), TransposeSupport::Supported);
+
+        let x = solver.solve(&factor, &[1.0, 1.0]).unwrap();
+        assert!((4.0 * x[0] + x[1] - 1.0).abs() < 1.0e-8);
+
+        let xt = solver.solve_transpose(&factor, &[1.0, 1.0]).unwrap();
+        assert!((4.0 * xt[0] + 2.0 * xt[1] - 1.0).abs() < 1.0e-8);
     }
 }
 ```
