@@ -1,6 +1,6 @@
 [package]
 name = "sim-lib-femm-geometry"
-version = "0.1.2"
+version = "0.2.0"
 edition = "2024"
 license = "MPL-2.0"
 description = "Symbolic 2D FEMM geometry and lowering to concrete meshing coordinates."
@@ -13,7 +13,7 @@ homepage = "https://github.com/sim-nest/sim-femm"
 sim-cookbook = { version = "0.1.0" }
 sim-kernel = { version = "0.1.0" }
 sim-value = { version = "0.1.0" }
-sim-lib-femm-core = { version = "0.1.0", path = "../sim-lib-femm-core" }
+sim-lib-femm-core = { version = "0.2.0", path = "../sim-lib-femm-core" }
 
 [build-dependencies]
 sim-cookbook = { version = "0.1.0" }
