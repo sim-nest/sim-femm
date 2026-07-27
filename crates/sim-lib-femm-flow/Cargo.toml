@@ -1,6 +1,6 @@
 [package]
 name = "sim-lib-femm-flow"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 license = "MPL-2.0"
 description = "Pseudo-transient continuation solver for nonlinear FEMM systems."
@@ -12,9 +12,9 @@ homepage = "https://github.com/sim-nest/sim-femm"
 [dependencies]
 sim-cookbook = { version = "0.1.0" }
 sim-kernel = { version = "0.1.0" }
-sim-lib-femm-core = { version = "0.2.0", path = "../sim-lib-femm-core" }
-sim-lib-numbers-func = { version = "0.2.0" }
-sim-lib-numbers-numeric = { version = "0.2.0" }
+sim-lib-femm-core = { version = "0.3.0", path = "../sim-lib-femm-core" }
+sim-lib-numbers-func = { version = "0.3.0" }
+sim-lib-numbers-numeric = { version = "0.3.0" }
 
 [build-dependencies]
 sim-cookbook = { version = "0.1.0" }
