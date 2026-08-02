@@ -1,6 +1,6 @@
 [package]
 name = "sim-lib-femm-prelude"
-version = "0.1.2"
+version = "0.2.0"
 edition = "2024"
 license = "MPL-2.0"
 description = "One-call installer for the SIM FEMM stack and its number dependencies."
@@ -12,14 +12,14 @@ homepage = "https://github.com/sim-nest/sim-femm"
 [dependencies]
 sim-cookbook = { version = "0.1.0" }
 sim-kernel = { version = "0.1.0" }
-sim-lib-femm-core = { version = "0.2.0", path = "../sim-lib-femm-core" }
-sim-lib-femm-field = { version = "0.1.2", path = "../sim-lib-femm-field" }
-sim-lib-femm-flow = { version = "0.2.0", path = "../sim-lib-femm-flow" }
-sim-lib-femm-function = { version = "0.1.3", path = "../sim-lib-femm-function" }
-sim-lib-femm-ode = { version = "0.1.3", path = "../sim-lib-femm-ode" }
-sim-lib-femm-sensitiv = { version = "0.1.4", path = "../sim-lib-femm-sensitiv" }
-sim-lib-numbers-numeric = { version = "0.2.0" }
-sim-lib-numbers-prelude = { version = "0.2.0" }
+sim-lib-femm-core = { version = "0.3.0", path = "../sim-lib-femm-core" }
+sim-lib-femm-field = { version = "0.2.0", path = "../sim-lib-femm-field" }
+sim-lib-femm-flow = { version = "0.3.0", path = "../sim-lib-femm-flow" }
+sim-lib-femm-function = { version = "0.2.0", path = "../sim-lib-femm-function" }
+sim-lib-femm-ode = { version = "0.2.0", path = "../sim-lib-femm-ode" }
+sim-lib-femm-sensitiv = { version = "0.2.0", path = "../sim-lib-femm-sensitiv" }
+sim-lib-numbers-numeric = { version = "0.3.0" }
+sim-lib-numbers-prelude = { version = "0.3.0" }
 
 [build-dependencies]
 sim-cookbook = { version = "0.1.0" }
