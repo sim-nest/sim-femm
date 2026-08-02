@@ -10,16 +10,16 @@ repository = "https://github.com/sim-nest/sim-femm"
 homepage = "https://github.com/sim-nest/sim-femm"
 
 [dependencies]
-sim-cookbook = { version = "0.1.0" }
-sim-kernel = { version = "0.1.0" }
-sim-value = { version = "0.1.0" }
+sim-cookbook = { version = "0.2.0" }
+sim-kernel = { version = "0.2.0" }
+sim-value = { version = "0.2.0" }
 sim-lib-femm-assembly = { version = "0.3.0", path = "../sim-lib-femm-assembly" }
 sim-lib-femm-core = { version = "0.3.0", path = "../sim-lib-femm-core" }
 sim-lib-femm-space = { version = "0.3.0", path = "../sim-lib-femm-space" }
-sim-lib-numbers-ad = { version = "0.2.0" }
+sim-lib-numbers-ad = { version = "0.2.1" }
 
 [dev-dependencies]
 sim-lib-femm-material = { version = "0.3.0", path = "../sim-lib-femm-material" }
 
 [build-dependencies]
-sim-cookbook = { version = "0.1.0" }
+sim-cookbook = { version = "0.2.0" }

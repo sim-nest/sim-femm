@@ -10,9 +10,9 @@ repository = "https://github.com/sim-nest/sim-femm"
 homepage = "https://github.com/sim-nest/sim-femm"
 
 [dependencies]
-sim-cookbook = { version = "0.1.0" }
-sim-kernel = { version = "0.1.0" }
-sim-value = { version = "0.1.0" }
+sim-cookbook = { version = "0.2.0" }
+sim-kernel = { version = "0.2.0" }
+sim-value = { version = "0.2.0" }
 sim-lib-femm-core = { version = "0.3.0", path = "../sim-lib-femm-core" }
 sim-lib-femm-function = { version = "0.2.0", path = "../sim-lib-femm-function" }
 sim-lib-femm-geometry = { version = "0.3.0", path = "../sim-lib-femm-geometry" }
@@ -20,7 +20,7 @@ sim-lib-femm-material = { version = "0.3.0", path = "../sim-lib-femm-material" }
 sim-lib-femm-mesh = { version = "0.3.0", path = "../sim-lib-femm-mesh" }
 sim-lib-femm-post = { version = "0.3.0", path = "../sim-lib-femm-post" }
 sim-lib-femm-tape = { version = "0.2.0", path = "../sim-lib-femm-tape" }
-sim-lib-numbers-func = { version = "0.3.0" }
+sim-lib-numbers-func = { version = "0.3.1" }
 
 [dev-dependencies]
 sim-lib-femm-fixtures = { version = "0.2.0", path = "../sim-lib-femm-fixtures" }
@@ -32,4 +32,4 @@ sim-lib-numbers-quad = { version = "0.3.0" }
 sim-lib-numbers-rk = { version = "0.3.0" }
 
 [build-dependencies]
-sim-cookbook = { version = "0.1.0" }
+sim-cookbook = { version = "0.2.0" }

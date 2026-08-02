@@ -10,17 +10,17 @@ repository = "https://github.com/sim-nest/sim-femm"
 homepage = "https://github.com/sim-nest/sim-femm"
 
 [dependencies]
-sim-cookbook = { version = "0.1.0" }
-sim-citizen = { version = "0.1.0" }
-sim-citizen-derive = { version = "0.1.0" }
-sim-kernel = { version = "0.1.0" }
+sim-cookbook = { version = "0.2.0" }
+sim-citizen = { version = "0.2.0" }
+sim-citizen-derive = { version = "0.2.0" }
+sim-kernel = { version = "0.2.0" }
 sim-lib-femm-core = { version = "0.3.0", path = "../sim-lib-femm-core" }
 sim-lib-femm-flow = { version = "0.3.0", path = "../sim-lib-femm-flow" }
 sim-lib-femm-mesh = { version = "0.3.0", path = "../sim-lib-femm-mesh" }
 sim-lib-femm-post = { version = "0.3.0", path = "../sim-lib-femm-post" }
-sim-lib-numbers-core = { version = "0.3.0" }
-sim-lib-numbers-func = { version = "0.3.0" }
-sim-shape = { version = "0.1.0" }
+sim-lib-numbers-core = { version = "0.3.1" }
+sim-lib-numbers-func = { version = "0.3.1" }
+sim-shape = { version = "0.2.0" }
 
 [build-dependencies]
-sim-cookbook = { version = "0.1.0" }
+sim-cookbook = { version = "0.2.0" }
