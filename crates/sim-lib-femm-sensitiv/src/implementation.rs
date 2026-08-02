@@ -13,9 +13,8 @@ use sim_lib_femm_material::{Boundary, BoundaryKind, Material, MeshPolicy, Source
 use sim_lib_femm_mesh::FemmModel;
 use sim_lib_femm_post::QuantitySpec;
 use sim_lib_femm_query::{FemmFuncPayload, ModelCallable, OutputQuery, resolve_model_params};
-use sim_lib_numbers_func::Func;
 use sim_lib_numbers_numeric::{
-    DiffOpts, Differentiator, NumericKind, NumericPlugin, register_differentiator,
+    DiffOpts, Differentiator, Func, NumericKind, NumericPlugin, register_differentiator,
 };
 
 use crate::expr_eval::{direct_expr_derivative, reverse_expr_gradient};
