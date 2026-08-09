@@ -60,7 +60,6 @@ claims_anchors = [
   "anchor/crate/sim-lib-femm-prelude",
   "anchor/crate/sim-lib-femm-query",
   "anchor/crate/sim-lib-femm-sensitiv",
-  "anchor/crate/sim-lib-femm-solve",
   "anchor/crate/sim-lib-femm-space",
   "anchor/crate/sim-lib-femm-tape",
   "anchor/runtime-lib/sim-lib-femm-core/femm-core-lib",
@@ -80,7 +79,6 @@ owner = "crate/sim-lib-femm-solve"
 audiences = ["code", "framework"]
 guidance = "Use this row when selecting or extending FEMM solve backends. Export provider solvers as the femm/linear-solver value, keep factor payloads opaque behind LinearFactor, keep matrix validation in sim-lib-femm-core, and keep certificate evidence in sim-lib-femm-solve."
 claims_anchors = [
-  "anchor/crate/sim-lib-femm-core",
   "anchor/crate/sim-lib-femm-solve",
   "anchor/rustdoc/sim-lib-femm-core/csr-matrix",
   "anchor/rustdoc/sim-lib-femm-solve/bicgstab_solve",
