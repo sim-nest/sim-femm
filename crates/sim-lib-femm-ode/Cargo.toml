@@ -32,4 +32,4 @@ sim-lib-numbers-quad = { version = "0.3.0" }
 sim-lib-numbers-rk = { version = "0.3.0" }
 
 [build-dependencies]
-sim-cookbook = { version = "0.2.0" }
+sim-cookbook-build = { version = "0.1.0" }

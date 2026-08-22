@@ -25,4 +25,4 @@ sim-lib-femm-space = { version = "0.3.0", path = "../sim-lib-femm-space" }
 sim-lib-numbers-ad = { version = "0.2.1" }
 
 [build-dependencies]
-sim-cookbook = { version = "0.2.0" }
+sim-cookbook-build = { version = "0.1.0" }

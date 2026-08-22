@@ -27,4 +27,4 @@ sim-lib-femm-fixtures = { version = "0.2.0", path = "../sim-lib-femm-fixtures" }
 sim-value = { version = "0.2.0" }
 
 [build-dependencies]
-sim-cookbook = { version = "0.2.0" }
+sim-cookbook-build = { version = "0.1.0" }

@@ -22,4 +22,4 @@ sim-lib-femm-post = { version = "0.3.0", path = "../sim-lib-femm-post" }
 sim-lib-femm-solve = { version = "0.3.0", path = "../sim-lib-femm-solve" }
 
 [build-dependencies]
-sim-cookbook = { version = "0.2.0" }
+sim-cookbook-build = { version = "0.1.0" }

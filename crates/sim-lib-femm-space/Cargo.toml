@@ -16,4 +16,4 @@ sim-lib-femm-core = { version = "0.3.0", path = "../sim-lib-femm-core" }
 sim-lib-femm-mesh = { version = "0.3.0", path = "../sim-lib-femm-mesh" }
 
 [build-dependencies]
-sim-cookbook = { version = "0.2.0" }
+sim-cookbook-build = { version = "0.1.0" }
