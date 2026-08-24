@@ -17,7 +17,11 @@ fn num(text: &str) -> Expr {
 }
 
 fn numeric_cx() -> Cx {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x4645_4d10),
+    );
     cx.load_lib(&sim_lib_numbers_arith::NumbersArithmeticLib::new())
         .unwrap();
     cx.load_lib(&sim_lib_numbers_f64::F64NumbersLib::new())
@@ -104,7 +108,11 @@ fn mock_force_rhs_reproduces_linear_state_equations() {
         Arc::new(Mutex::new(SolveTape::default())),
     )
     .unwrap();
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x4645_4d11),
+    );
     let func = cx.factory().opaque(Arc::new(rhs.as_func())).unwrap();
     let t = f64_value(&mut cx, 0.5);
     let y = f64_value(&mut cx, 0.25);
@@ -138,7 +146,7 @@ fn femm_ode_rhs_integrates_through_numbers_ode_solve() {
         .factory()
         .table(vec![
             (Symbol::new(":method"), method),
-            (Symbol::new(":h"), step),
+            (Symbol::new(":fixed-step"), step),
         ])
         .unwrap();
     let rhs = cx.factory().opaque(Arc::new(rhs.as_func())).unwrap();
@@ -197,7 +205,11 @@ fn femm_ode_rhs_constructor_rejects_malformed_shapes() {
 
 #[test]
 fn femm_as_ode_rhs_rejects_malformed_adapter_inputs() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x4645_4d12),
+    );
     cx.load_lib(&FemmOdeLib::new()).unwrap();
     let model = cx
         .factory()

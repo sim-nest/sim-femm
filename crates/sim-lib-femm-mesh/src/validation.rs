@@ -194,6 +194,7 @@ fn validate_value_ref(value: &sim_kernel::Value, input: &Symbol) -> FemmResult<(
     let mut cx = Cx::new(
         std::sync::Arc::new(sim_kernel::EagerPolicy),
         std::sync::Arc::new(sim_kernel::DefaultFactory),
+        sim_kernel::HandleSeed::new(0x4645_4d02),
     );
     value
         .object()

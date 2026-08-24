@@ -429,6 +429,7 @@ fn boundary_value(
     let mut cx = Cx::new(
         std::sync::Arc::new(sim_kernel::EagerPolicy),
         std::sync::Arc::new(sim_kernel::DefaultFactory),
+        sim_kernel::HandleSeed::new(0x4645_4d03),
     );
     eval_expr_f64(&mut cx, &boundary.value, params, &[])
 }

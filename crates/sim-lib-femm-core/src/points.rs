@@ -64,6 +64,7 @@ pub fn decode_point2(points: &Value) -> FemmResult<[f64; 2]> {
     let mut cx = Cx::new(
         std::sync::Arc::new(sim_kernel::EagerPolicy),
         std::sync::Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x4645_4d01),
     );
     let expr = points
         .object()

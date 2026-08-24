@@ -61,7 +61,7 @@ use sim_lib_numbers_func::Func;
 ///     ],
 ///     Arc::new(Mutex::new(SolveTape::default())),
 /// ).unwrap();
-/// let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+/// let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory), sim_kernel::HandleSeed::new(7));
 /// let func = cx.factory().opaque(Arc::new(rhs.as_func())).unwrap();
 /// let out = cx
 ///     .call_value(
