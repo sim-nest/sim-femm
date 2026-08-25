@@ -19,6 +19,7 @@ use sim_lib_femm_mesh::FemmModel;
 use sim_lib_femm_post::{FemmSolution, QuantitySpec};
 use sim_lib_femm_tape::SolveTape;
 use sim_lib_numbers_func::Func;
+use sim_lib_numbers_implicit::{ImplicitProblem, RadauError, ResidualFunction, ResidualJacobian};
 
 /// A FEMM model cast as the right-hand side of a first-order ODE system.
 ///
@@ -115,6 +116,73 @@ pub trait DaeResidual {
     ) -> KernelResult<Option<CsrMatrix>> {
         Ok(None)
     }
+}
+
+/// Numeric residual seam implemented by FEMM transient/flow models that are
+/// mathematically equivalent to an index-1 system.
+///
+/// This is deliberately distinct from [`FemmOdeRhs`]: implementations must
+/// provide `F(t,z,zdot)=0`, a stage Jacobian
+/// `dF/dz + alpha*dF/dzdot`, and a differential/algebraic partition. The
+/// adapter therefore cannot relabel an ordinary explicit FEMM ODE as a DAE.
+pub trait FemmImplicitResidual: Send + Sync + 'static {
+    /// State dimension.
+    fn dimension(&self) -> usize;
+    /// True for differential variables and false for algebraic variables.
+    fn differential_mask(&self) -> Vec<bool>;
+    /// Evaluates `F(t,z,zdot)`.
+    fn residual_f64(
+        &self,
+        time: f64,
+        state: &[f64],
+        derivative: &[f64],
+        residual: &mut [f64],
+    ) -> FemmResult<()>;
+    /// Evaluates `dF/dz + alpha*dF/dzdot` in row-major order.
+    fn stage_jacobian_f64(
+        &self,
+        time: f64,
+        state: &[f64],
+        derivative: &[f64],
+        alpha: f64,
+        jacobian: &mut [f64],
+    ) -> FemmResult<()>;
+}
+
+/// Adapts a FEMM residual/Jacobian pair to the public implicit numeric form.
+///
+/// Field, mesh, assembly, and solve-cache behavior stays behind the FEMM
+/// implementation; the returned value contains only the numeric callbacks and
+/// exact index-1 partition consumed by `sim-lib-numbers-implicit`.
+pub fn as_implicit_problem<T: FemmImplicitResidual>(model: Arc<T>) -> FemmResult<ImplicitProblem> {
+    let dimension = model.dimension();
+    let differential = model.differential_mask();
+    if dimension == 0 || differential.len() != dimension {
+        return Err(FemmError::UnsupportedPhysics(
+            "implicit FEMM state and differential mask must have equal nonzero size".to_owned(),
+        ));
+    }
+    if differential.iter().all(|value| *value) || differential.iter().all(|value| !*value) {
+        return Err(FemmError::UnsupportedPhysics(
+            "implicit FEMM residual must declare differential and algebraic variables".to_owned(),
+        ));
+    }
+    let residual_model = Arc::clone(&model);
+    let residual: ResidualFunction = Arc::new(move |time, state, derivative, output| {
+        residual_model
+            .residual_f64(time, state, derivative, output)
+            .map_err(|error| RadauError::Callback(error.to_string()))
+    });
+    let jacobian: ResidualJacobian = Arc::new(move |time, state, derivative, alpha, output| {
+        model
+            .stage_jacobian_f64(time, state, derivative, alpha, output)
+            .map_err(|error| RadauError::Callback(error.to_string()))
+    });
+    Ok(ImplicitProblem::Residual {
+        residual,
+        jacobian,
+        differential,
+    })
 }
 
 impl FemmOdeRhs {

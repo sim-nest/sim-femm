@@ -21,6 +21,7 @@ sim-lib-femm-mesh = { version = "0.3.0", path = "../sim-lib-femm-mesh" }
 sim-lib-femm-post = { version = "0.3.0", path = "../sim-lib-femm-post" }
 sim-lib-femm-tape = { version = "0.2.0", path = "../sim-lib-femm-tape" }
 sim-lib-numbers-func = { version = "0.3.1" }
+sim-lib-numbers-implicit = { version = "0.1.0" }
 
 [dev-dependencies]
 sim-lib-femm-fixtures = { version = "0.2.0", path = "../sim-lib-femm-fixtures" }

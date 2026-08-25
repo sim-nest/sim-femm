@@ -10,7 +10,48 @@ use sim_lib_numbers_numeric::{NumericNumbersLib, global_numeric_registry, numeri
 use sim_lib_numbers_quad::QuadNumbersLib;
 use sim_lib_numbers_rk::RkNumbersLib;
 
-use crate::{FemmOdeLib, FemmOdeRhs};
+use crate::{FemmImplicitResidual, FemmOdeLib, FemmOdeRhs, as_implicit_problem};
+
+struct ConstrainedFlow;
+impl FemmImplicitResidual for ConstrainedFlow {
+    fn dimension(&self) -> usize {
+        2
+    }
+    fn differential_mask(&self) -> Vec<bool> {
+        vec![true, false]
+    }
+    fn residual_f64(
+        &self,
+        _: f64,
+        z: &[f64],
+        zdot: &[f64],
+        out: &mut [f64],
+    ) -> sim_lib_femm_core::FemmResult<()> {
+        out[0] = zdot[0] + z[0];
+        out[1] = z[1] - z[0] * z[0];
+        Ok(())
+    }
+    fn stage_jacobian_f64(
+        &self,
+        _: f64,
+        z: &[f64],
+        _: &[f64],
+        alpha: f64,
+        out: &mut [f64],
+    ) -> sim_lib_femm_core::FemmResult<()> {
+        out.copy_from_slice(&[1.0 + alpha, 0.0, -2.0 * z[0], 1.0]);
+        Ok(())
+    }
+}
+
+#[test]
+fn femm_residual_adapts_to_declared_index_one_form() {
+    let problem = as_implicit_problem(Arc::new(ConstrainedFlow)).unwrap();
+    let sim_lib_numbers_implicit::ImplicitProblem::Residual { differential, .. } = problem else {
+        panic!("expected residual form")
+    };
+    assert_eq!(differential, vec![true, false]);
+}
 
 fn num(text: &str) -> Expr {
     sim_value::build::num_q(Some("numbers"), "f64", text)

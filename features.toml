@@ -99,6 +99,22 @@ claims_specimens = [
   "spec-test/sim-femm/crates/sim-lib-femm-solve/src/implementation/tests",
 ]
 
+[[feature]]
+id = "feature/sim-femm/implicit-residual-adapter"
+title = "FEMM index-1 residual adapter"
+summary = "Expose semantically implicit FEMM transient and flow systems as the public residual/Jacobian form consumed by the Radau backend without moving field or mesh behavior out of FEMM."
+owner = "crate/sim-lib-femm-ode"
+audiences = ["code", "framework"]
+guidance = "Implement FemmImplicitResidual only for a genuine F(t,z,zdot)=0 system. Supply dF/dz + alpha*dF/dzdot and a mixed differential/algebraic mask; use as_implicit_problem to cross the numeric boundary. Keep model solves, fields, meshes, and cached FEMM factors behind the adapter."
+claims_anchors = [
+  "anchor/crate/sim-lib-femm-ode",
+  "anchor/rustdoc/sim-lib-femm-ode/femm-implicit-residual",
+  "anchor/rustdoc/sim-lib-femm-ode/as_implicit_problem",
+]
+claims_specimens = [
+  "spec-test/sim-femm/crates/sim-lib-femm-ode/src/tests",
+]
+
 [[route]]
 id = "route/add-femm-domain-helper"
 task = "Add a FEMM domain helper"
@@ -114,4 +130,13 @@ audiences = ["code", "framework"]
 steps = [
   { feature = "feature/sim-femm/linear-solvers", why = "The linear solver row owns solver contracts, factor handles, iterative kernels, and certificate evidence." },
   { specimen = "spec-test/sim-femm/crates/sim-lib-femm-solve/src/implementation/tests", why = "The checked implementation specimen proves solver reuse metadata and residual evidence for certificates." },
+]
+
+[[route]]
+id = "route/integrate-femm-index-one-dae"
+task = "Integrate a FEMM index-1 DAE"
+audiences = ["code", "framework"]
+steps = [
+  { feature = "feature/sim-femm/implicit-residual-adapter", why = "The FEMM adapter owns the residual/Jacobian boundary and preserves FEMM field and mesh ownership." },
+  { specimen = "spec-test/sim-femm/crates/sim-lib-femm-ode/src/tests", why = "The checked adapter specimen proves that a mixed differential/algebraic FEMM residual becomes the public implicit form." },
 ]
