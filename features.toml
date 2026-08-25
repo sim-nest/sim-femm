@@ -14,6 +14,21 @@ major_entrypoints = "advisory"
 frameworks = "advisory"
 
 [[feature]]
+id = "feature/sim-femm/physics-audit-adapter"
+title = "FEMM physics audit adapter"
+summary = "Lower FEMM solution, excitation, field energy/loss, ODE/DAE influence, sensitivity, and solve certificates into the shared physics adapter contract."
+owner = "crate/sim-lib-femm-physics"
+guidance = "Use adapt_femm after FEMM-owned solving and post-processing. Supply records only; the adapter performs no solve or host/device probe and preserves model evidence separately from solver evidence."
+claims_anchors = ["anchor/crate/sim-lib-femm-physics", "anchor/rustdoc/sim-lib-femm-physics/adapt_femm"]
+claims_specimens = ["spec-test/sim-femm/crates/sim-lib-femm-physics/tests/physics_adapter"]
+composes = ["crate/sim-lib-physics-adapter", "crate/sim-lib-numbers-quantity"]
+
+[[route]]
+id = "route/audit-femm-result"
+task = "Feed a certified FEMM result into a shared physics audit"
+steps = [{ feature = "feature/sim-femm/physics-audit-adapter", why = "Preserve FEMM quantities, certificates, provenance, and influences at the audit boundary." }]
+
+[[feature]]
 id = "feature/sim-femm/generated-docs"
 title = "Repository documentation surface"
 summary = "Publish generated package, card, rustdoc, and index facts for the FEMM domain crates."

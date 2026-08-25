@@ -8,8 +8,10 @@
 //! for the magnetostatic, harmonic, electrostatic, heat, and current physics.
 
 mod implementation;
+mod physics_adapter;
 
 pub use implementation::*;
+pub use physics_adapter::*;
 
 /// Cookbook recipes for this lib, embedded at build time.
 pub static RECIPES: sim_cookbook::EmbeddedDir =
