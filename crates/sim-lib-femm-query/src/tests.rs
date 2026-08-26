@@ -60,7 +60,11 @@ fn unmeshable_model() -> FemmModel {
 
 #[test]
 fn projected_scalar_model_returns_expected_value() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0xaa10_086a_5148_e843),
+    );
     let func = femm_as_func(
         model(),
         vec![Symbol::new("gap-mm")],
@@ -108,7 +112,11 @@ fn femm_as_func_carries_adjoint_payload() {
 
 #[test]
 fn projected_field_returns_field_domain() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x6b2b_63cc_1641_09ac),
+    );
     let gap = cx
         .factory()
         .number_literal(Symbol::qualified("numbers", "f64"), "0.4".to_owned())
@@ -135,7 +143,11 @@ fn projected_field_returns_field_domain() {
 
 #[test]
 fn field_func_requires_real_solution() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x82c2_dc78_79cd_eafb),
+    );
     let func = crate::femm_field_func(unmeshable_model());
     let x = cx
         .factory()

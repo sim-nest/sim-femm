@@ -1010,7 +1010,8 @@
       "rustdoc_summary": "Governing physics fronts for the supported FEMM formulations.",
       "target_kinds": [
         "custom-build",
-        "lib"
+        "lib",
+        "test"
       ],
       "targets": [
         {
@@ -1022,6 +1023,16 @@
           ],
           "name": "sim_lib_femm_physics",
           "src": "crates/sim-lib-femm-physics/src/lib.rs"
+        },
+        {
+          "crate_types": [
+            "bin"
+          ],
+          "kind": [
+            "test"
+          ],
+          "name": "physics_adapter",
+          "src": "crates/sim-lib-femm-physics/tests/physics_adapter.rs"
         },
         {
           "crate_types": [
@@ -1667,10 +1678,10 @@
     "generated_by": "cargo run -p xtask -- simdoc",
     "generation_timestamp": "2026-07-14T23:00:40+02:00",
     "generator": "xtask repo-contract v1",
-    "git_commit": "cd0c32aa9e9f97cba7306e2f6c21bbbb0a7c449d",
+    "git_commit": "f4cb14555b2812102993b2b622ed1101b569fcf0",
     "repo": "sim-femm",
     "schema": "sim.provenance.v1",
-    "source_commit": "cd0c32aa9e9f97cba7306e2f6c21bbbb0a7c449d",
+    "source_commit": "f4cb14555b2812102993b2b622ed1101b569fcf0",
     "source_remote": "https://github.com/sim-nest/sim-femm",
     "validation_commands": [
       "cargo fmt --all --check",
@@ -1683,9 +1694,9 @@
       "cargo run -p xtask -- validation-matrix --check --repo .",
       "cargo run -p xtask -- crate-catalog --check --repo ."
     ],
-    "workspace_hash": "1b35e69eed91d893",
+    "workspace_hash": "5322789842e40cbe",
     "workspace_hash_algorithm": "fnv1a64",
-    "workspace_hash_input_count": 147,
+    "workspace_hash_input_count": 149,
     "workspace_hash_inputs": [
       "Cargo.toml",
       "crates/sim-lib-femm-assembly/Cargo.toml",
@@ -1774,6 +1785,8 @@
       "crates/sim-lib-femm-physics/recipes/book.toml",
       "crates/sim-lib-femm-physics/src/implementation.rs",
       "crates/sim-lib-femm-physics/src/lib.rs",
+      "crates/sim-lib-femm-physics/src/physics_adapter.rs",
+      "crates/sim-lib-femm-physics/tests/physics_adapter.rs",
       "crates/sim-lib-femm-post/Cargo.toml",
       "crates/sim-lib-femm-post/build.rs",
       "crates/sim-lib-femm-post/recipes/01-basics/energy-query/recipe.toml",

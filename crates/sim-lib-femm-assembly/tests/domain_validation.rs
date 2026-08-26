@@ -45,7 +45,11 @@ impl PhysicsFront for PoissonFront {
 }
 
 fn test_cx() -> Cx {
-    Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory))
+    Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0xf71c_dad0_ccf7_666b),
+    )
 }
 
 fn num(text: &str) -> Expr {

@@ -66,7 +66,11 @@ fn unmeshable_model() -> FemmModel {
 
 #[test]
 fn projected_scalar_model_returns_expected_value() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x5300_71a9_2a88_76c8),
+    );
     let func = femm_as_func(
         model(),
         vec![sim_kernel::Symbol::new("gap-mm")],
@@ -93,7 +97,11 @@ fn projected_scalar_model_returns_expected_value() {
 
 #[test]
 fn femm_as_func_still_callable_and_diffable() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x4cf4_b5ef_6434_d268),
+    );
     let func = femm_as_func(
         model(),
         vec![sim_kernel::Symbol::new("gap-mm")],
@@ -133,7 +141,11 @@ fn femm_as_func_still_callable_and_diffable() {
 
 #[test]
 fn direct_function_load_registers_adjoint_hint() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x8ec4_a73c_6d60_1107),
+    );
     cx.load_lib(&FemmFunctionLib::new()).unwrap();
     let guard = global_numeric_registry().read().unwrap();
     assert!(guard.differentiator(&Symbol::new("femm-adjoint")).is_some());
@@ -141,7 +153,11 @@ fn direct_function_load_registers_adjoint_hint() {
 
 #[test]
 fn femm_grad_returns_values_and_trust() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0xfacd_3794_5f4b_9b4c),
+    );
     cx.load_lib(&FemmFunctionLib::new()).unwrap();
     let model = cx
         .call_function(
@@ -190,7 +206,11 @@ fn femm_grad_returns_values_and_trust() {
 
 #[test]
 fn projected_field_returns_field_domain() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0xf51f_a95f_38f7_745c),
+    );
     let gap = cx
         .factory()
         .number_literal(
@@ -220,7 +240,11 @@ fn projected_field_returns_field_domain() {
 
 #[test]
 fn field_func_requires_real_solution() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0xcf17_f1f3_209f_8868),
+    );
     let func = femm_field_func(unmeshable_model());
     let x = cx
         .factory()
@@ -248,7 +272,11 @@ fn field_func_requires_real_solution() {
 
 #[test]
 fn quality_query_returns_certificate_and_value() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x284a_1b67_7596_5194),
+    );
     let solve = solve_steady(
         &mut cx,
         &parallel_plate_capacitor(),
@@ -306,7 +334,11 @@ fn map_entry<'a>(entries: &'a [(Expr, Expr)], key: &str) -> Option<&'a Expr> {
 
 #[test]
 fn solve_export_record_fills_all_fields() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x4a7b_1a5f_6ff6_5ab1),
+    );
     let solve = solve_steady(
         &mut cx,
         &parallel_plate_capacitor(),

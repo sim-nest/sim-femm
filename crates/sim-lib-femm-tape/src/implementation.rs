@@ -181,7 +181,11 @@ mod tests {
     use super::*;
 
     fn test_cx() -> Cx {
-        Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory))
+        Cx::new(
+            Arc::new(EagerPolicy),
+            Arc::new(DefaultFactory),
+            sim_kernel::HandleSeed::new(0xaa7a_a70e_ca91_6759),
+        )
     }
 
     fn num(text: &str) -> Expr {

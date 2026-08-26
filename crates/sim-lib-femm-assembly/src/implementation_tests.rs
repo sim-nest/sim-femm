@@ -10,7 +10,11 @@ use sim_lib_femm_mesh::{FemMesh2, FemmModel, MeshedModel};
 use super::*;
 
 fn test_cx() -> Cx {
-    Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory))
+    Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x5acd_51e9_161b_67d1),
+    )
 }
 
 struct ElapsedClock(Duration);
@@ -36,8 +40,10 @@ fn explicit_clock_enforces_wall_budget_before_element_work() {
         },
         diagnostics: Vec::new(),
     };
-    let mut limits = FemmLimits::default();
-    limits.max_wall_ms = 4;
+    let limits = FemmLimits {
+        max_wall_ms: 4,
+        ..FemmLimits::default()
+    };
     let result = assemble_system_with_clock(
         &mut cx,
         &PoissonFront,

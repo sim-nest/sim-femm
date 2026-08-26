@@ -36,3 +36,4 @@ fn refuses_incomplete_boundary() {
     value.boundary_complete = false;
     assert_eq!(adapt_femm(value), Err(AdapterRefusal::IncompleteBoundary));
 }
+// conformance: FEMM physics adaptation preserves quantities, certificates, and influences.

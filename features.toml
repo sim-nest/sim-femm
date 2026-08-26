@@ -21,7 +21,7 @@ owner = "crate/sim-lib-femm-physics"
 guidance = "Use adapt_femm after FEMM-owned solving and post-processing. Supply records only; the adapter performs no solve or host/device probe and preserves model evidence separately from solver evidence."
 claims_anchors = ["anchor/crate/sim-lib-femm-physics", "anchor/rustdoc/sim-lib-femm-physics/adapt_femm"]
 claims_specimens = ["spec-test/sim-femm/crates/sim-lib-femm-physics/tests/physics_adapter"]
-composes = ["crate/sim-lib-physics-adapter", "crate/sim-lib-numbers-quantity"]
+composes = ["crate/sim-lib-physics-adapter"]
 
 [[route]]
 id = "route/audit-femm-result"

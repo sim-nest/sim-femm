@@ -7,7 +7,11 @@ use crate::FemmPreludeLib;
 
 #[test]
 fn prelude_exposes_stable_stack() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x5724_41e7_74dd_9537),
+    );
     FemmPreludeLib::new().install_all(&mut cx).unwrap();
     FemmPreludeLib::new().install_all(&mut cx).unwrap();
     assert!(
@@ -40,7 +44,11 @@ fn prelude_exposes_stable_stack() {
 
 #[test]
 fn documented_femm_forms_are_callable() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x93e6_f8cc_e891_904f),
+    );
     FemmPreludeLib::new().install_all(&mut cx).unwrap();
 
     let model = cx

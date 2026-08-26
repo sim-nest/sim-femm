@@ -101,7 +101,11 @@ fn central_difference(
 
 #[test]
 fn pow_integer_exponent_derivative_is_finite_at_negative_base() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x0eb5_5ff7_3fa8_fb70),
+    );
     let gap = Symbol::new("gap");
     let params = param(&mut cx, &gap, -2.0);
     let expr = call("pow", vec![Expr::Symbol(gap.clone()), num("2.0")]);
@@ -135,7 +139,11 @@ fn pow_integer_exponent_derivative_is_finite_at_negative_base() {
 
 #[test]
 fn primal_and_ad_agree_on_operator_set() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x1eb8_f18f_c33c_a540),
+    );
     let gap = Symbol::new("gap");
     let params = param(&mut cx, &gap, 0.5);
     for operator in FEMM_EXPR_OPERATORS {

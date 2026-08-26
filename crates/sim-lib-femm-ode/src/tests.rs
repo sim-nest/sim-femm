@@ -368,3 +368,4 @@ fn femm_func_still_first_class() {
         .unwrap();
     assert!((value_to_f64(&mut cx, &integral) - 1.0).abs() < 1.0e-10);
 }
+// conformance: FEMM ODE tests prove coupled integration and retained solver evidence.

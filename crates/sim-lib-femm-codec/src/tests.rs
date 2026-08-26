@@ -330,7 +330,11 @@ fn value_symbol(name: &str) -> sim_kernel::Value {
 }
 
 fn codec_cx() -> Cx {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x3acb_77aa_a400_8c7c),
+    );
     cx.grant(read_construct_capability());
     cx.load_lib(&sim_citizen::CitizenLib::namespace("femm"))
         .unwrap();

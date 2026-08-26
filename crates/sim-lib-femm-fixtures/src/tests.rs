@@ -50,7 +50,11 @@ fn fixture_reference_outputs_match_expected_analytics() {
 
 #[test]
 fn every_fixture_solves_in_planar_and_axisymmetric_modes() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0xf406_5637_26ff_68e3),
+    );
     for mut model in fixture_models() {
         // A material carrying a nonlinear B-H curve (`nu_of_b2`) is rejected by
         // the linear magnetic fronts: the solve fails closed rather than
@@ -83,7 +87,11 @@ fn every_fixture_solves_in_planar_and_axisymmetric_modes() {
 #[test]
 fn nonlinear_bh_ptc_solve_emits_certificate() {
     use crate::gapped_ei_core_inductor;
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x089b_9ba1_5f06_3c98),
+    );
     let model = gapped_ei_core_inductor();
     assert!(
         model
@@ -112,7 +120,11 @@ fn nonlinear_bh_ptc_solve_emits_certificate() {
 #[test]
 fn non_convergent_ptc_error_message_carries_method_tag() {
     use crate::gapped_ei_core_inductor;
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x8ef4_ff3f_597f_ffb7),
+    );
     let tight = FemmLimits {
         max_solve_iters: 1,
         ..FemmLimits::default()
@@ -142,7 +154,11 @@ fn non_convergent_ptc_error_message_carries_method_tag() {
 
 #[test]
 fn linear_solve_emits_valid_certificate() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x87f5_7a9b_fa46_cb80),
+    );
     let result = solve_steady(
         &mut cx,
         &parallel_plate_capacitor(),
@@ -164,7 +180,11 @@ fn linear_solve_emits_valid_certificate() {
 
 #[test]
 fn quality_query_solve_export_record_fills_all_fields() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x5a24_9cdd_5ca9_c79a),
+    );
     let solve = solve_steady(
         &mut cx,
         &parallel_plate_capacitor(),
@@ -190,7 +210,11 @@ fn quality_query_solve_export_record_fills_all_fields() {
 
 #[test]
 fn all_physics_kinds_validate_solve_and_postprocess() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0xd038_fcc9_c64b_23e8),
+    );
     for physics in [
         PhysicsKind::Magnetostatic,
         PhysicsKind::MagneticsHarmonic,
