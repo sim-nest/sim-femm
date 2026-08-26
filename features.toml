@@ -70,7 +70,6 @@ claims_anchors = [
   "anchor/crate/sim-lib-femm-material",
   "anchor/crate/sim-lib-femm-mesh",
   "anchor/crate/sim-lib-femm-ode",
-  "anchor/crate/sim-lib-femm-physics",
   "anchor/crate/sim-lib-femm-post",
   "anchor/crate/sim-lib-femm-prelude",
   "anchor/crate/sim-lib-femm-query",
@@ -122,7 +121,6 @@ owner = "crate/sim-lib-femm-ode"
 audiences = ["code", "framework"]
 guidance = "Implement FemmImplicitResidual only for a genuine F(t,z,zdot)=0 system. Supply dF/dz + alpha*dF/dzdot and a mixed differential/algebraic mask; use as_implicit_problem to cross the numeric boundary. Keep model solves, fields, meshes, and cached FEMM factors behind the adapter."
 claims_anchors = [
-  "anchor/crate/sim-lib-femm-ode",
   "anchor/rustdoc/sim-lib-femm-ode/femm-implicit-residual",
   "anchor/rustdoc/sim-lib-femm-ode/as_implicit_problem",
 ]
