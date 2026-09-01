@@ -31,7 +31,7 @@ use sim_lib_numbers_prelude::NumbersPreludeLib;
 /// use sim_kernel::{Cx, DefaultFactory, EagerPolicy, Symbol};
 /// use sim_lib_femm_prelude::FemmPreludeLib;
 ///
-/// let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+/// let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory), sim_kernel::HandleSeed::new(0x66d9_3287_fb00_232b));
 /// FemmPreludeLib::new().install_all(&mut cx).unwrap();
 /// assert!(cx.registry().lib(&Symbol::qualified("femm", "core")).is_some());
 /// assert!(

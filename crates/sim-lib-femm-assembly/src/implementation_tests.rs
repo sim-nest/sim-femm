@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use sim_kernel::{DefaultFactory, EagerPolicy};
 use sim_kernel::{Expr, Symbol};
@@ -10,7 +10,49 @@ use sim_lib_femm_mesh::{FemMesh2, FemmModel, MeshedModel};
 use super::*;
 
 fn test_cx() -> Cx {
-    Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory))
+    Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x5acd_51e9_161b_67d1),
+    )
+}
+
+struct ElapsedClock(Duration);
+
+impl AssemblyClock for ElapsedClock {
+    fn elapsed(&self) -> Duration {
+        self.0
+    }
+}
+
+#[test]
+fn explicit_clock_enforces_wall_budget_before_element_work() {
+    let mut cx = test_cx();
+    let model = model();
+    let meshed = MeshedModel {
+        model_id: StableId(1),
+        params: ParamSet::default(),
+        mesh: FemMesh2 {
+            xy: vec![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]],
+            tri: vec![[0, 1, 2]],
+            elem_region: vec![Symbol::new("air")],
+            edge_boundary: Vec::new(),
+        },
+        diagnostics: Vec::new(),
+    };
+    let limits = FemmLimits {
+        max_wall_ms: 4,
+        ..FemmLimits::default()
+    };
+    let result = assemble_system_with_clock(
+        &mut cx,
+        &PoissonFront,
+        &model,
+        &meshed,
+        &limits,
+        &ElapsedClock(Duration::from_millis(5)),
+    );
+    assert!(matches!(result, Err(FemmError::BudgetExceeded(_))));
 }
 
 struct PoissonFront;

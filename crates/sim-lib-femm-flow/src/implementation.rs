@@ -6,9 +6,11 @@
 
 use std::sync::{Arc, OnceLock};
 
-use sim_kernel::{Cx, Diagnostic, Error, Result as KernelResult, Severity, Symbol, Value};
+use sim_kernel::{Cx, Diagnostic, Error, Result as KernelResult, Severity, Symbol};
 use sim_lib_femm_core::{FemmError, FemmResult, StableId};
-use sim_lib_numbers_numeric::{NumericKind, OdeOpts, OdeProblem, OdeSolver, register_ode_solver};
+use sim_lib_numbers_numeric::{
+    NumericKind, OdeCapabilities, OdePlan, OdeProblem, OdeSolution, OdeSolver, register_ode_solver,
+};
 
 /// Tuning knobs for the [`ptc_solve`] pseudo-transient continuation iteration.
 ///
@@ -282,12 +284,16 @@ impl sim_lib_numbers_numeric::NumericPlugin for FemmPtcPlugin {
 }
 
 impl OdeSolver for FemmPtcPlugin {
+    fn capabilities(&self) -> OdeCapabilities {
+        OdeCapabilities::default()
+    }
+
     fn solve(
         &self,
         _cx: &mut Cx,
         _problem: OdeProblem<'_>,
-        _opt: OdeOpts,
-    ) -> KernelResult<Vec<(Value, Value)>> {
+        _plan: OdePlan,
+    ) -> KernelResult<OdeSolution> {
         Err(sim_kernel::Error::Eval(
             "femm-ptc is a steady FEMM solver registration hook".to_owned(),
         ))

@@ -5,7 +5,7 @@
 //! mesh, evaluates coefficients, and builds the global stiffness matrix and
 //! load vector for a FEMM model.
 
-use std::time::Instant;
+use std::time::Duration;
 
 use sim_kernel::{Cx, Symbol};
 use sim_lib_femm_core::{CsrMatrix, FemmError, FemmLimits, FemmResult, ParamSet};
@@ -172,6 +172,22 @@ pub struct AssembledSystem {
     pub dof_of_node: Vec<Option<usize>>,
 }
 
+/// Caller-supplied monotonic time used to enforce an assembly wall budget.
+pub trait AssemblyClock {
+    /// Elapsed time since this assembly began.
+    fn elapsed(&self) -> Duration;
+}
+
+/// Deterministic modeled clock used when no platform clock is supplied.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct FrozenAssemblyClock;
+
+impl AssemblyClock for FrozenAssemblyClock {
+    fn elapsed(&self) -> Duration {
+        Duration::ZERO
+    }
+}
+
 /// Assemble the global stiffness matrix and load vector for a meshed model.
 ///
 /// Walks every mesh triangle, resolves its region coefficients, evaluates the
@@ -186,7 +202,18 @@ pub fn assemble_system<F: PhysicsFront>(
     meshed: &MeshedModel,
     limits: &FemmLimits,
 ) -> FemmResult<AssembledSystem> {
-    let started = Instant::now();
+    assemble_system_with_clock(cx, front, model, meshed, limits, &FrozenAssemblyClock)
+}
+
+/// Assemble with an explicit modeled or platform-provided monotonic clock.
+pub fn assemble_system_with_clock<F: PhysicsFront>(
+    cx: &mut Cx,
+    front: &F,
+    model: &FemmModel,
+    meshed: &MeshedModel,
+    limits: &FemmLimits,
+    clock: &dyn AssemblyClock,
+) -> FemmResult<AssembledSystem> {
     if meshed.mesh.tri.len() > limits.max_elements {
         return Err(FemmError::MeshLimitExceeded(format!(
             "elements {} > {}",
@@ -200,7 +227,7 @@ pub fn assemble_system<F: PhysicsFront>(
     let mut dense = vec![vec![0.0; n]; n];
     let mut residual = vec![0.0; n];
     for (elem_index, tri) in meshed.mesh.tri.iter().copied().enumerate() {
-        if started.elapsed().as_millis() as u64 > limits.max_wall_ms {
+        if clock.elapsed().as_millis() as u64 > limits.max_wall_ms {
             return Err(FemmError::BudgetExceeded(
                 "assembly wall clock exceeded".to_owned(),
             ));
@@ -402,6 +429,7 @@ fn boundary_value(
     let mut cx = Cx::new(
         std::sync::Arc::new(sim_kernel::EagerPolicy),
         std::sync::Arc::new(sim_kernel::DefaultFactory),
+        sim_kernel::HandleSeed::new(0x4645_4d03),
     );
     eval_expr_f64(&mut cx, &boundary.value, params, &[])
 }

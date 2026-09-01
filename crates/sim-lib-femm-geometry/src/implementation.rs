@@ -161,7 +161,7 @@ impl Geometry2 {
     /// use sim_lib_femm_core::ParamSet;
     /// use sim_lib_femm_geometry::{AnalyticRegion2, Geometry2};
     ///
-    /// let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    /// let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory), sim_kernel::HandleSeed::new(0x38d3_50fc_741e_46bc));
     /// let num = |t: &str| Expr::Number(NumberLiteral {
     ///     domain: Symbol::qualified("numbers", "f64"),
     ///     canonical: t.to_owned(),
@@ -309,7 +309,11 @@ mod tests {
     use super::*;
 
     fn test_cx() -> Cx {
-        Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory))
+        Cx::new(
+            Arc::new(EagerPolicy),
+            Arc::new(DefaultFactory),
+            sim_kernel::HandleSeed::new(0xf811_fa53_1de0_98d6),
+        )
     }
 
     fn num(text: &str) -> Expr {

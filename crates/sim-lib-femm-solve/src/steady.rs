@@ -505,6 +505,7 @@ mod tests {
         let mut cx = Cx::new(
             std::sync::Arc::new(sim_kernel::EagerPolicy),
             std::sync::Arc::new(DefaultFactory),
+            sim_kernel::HandleSeed::new(0x4645_4d01),
         );
         let out = solve_steady(
             &mut cx,
@@ -526,6 +527,7 @@ mod tests {
         let mut cx = Cx::new(
             std::sync::Arc::new(sim_kernel::EagerPolicy),
             std::sync::Arc::new(DefaultFactory),
+            sim_kernel::HandleSeed::new(0x4645_4d02),
         );
         let provider = LinearSolverValue::new(Arc::new(TestProviderSolver));
         let value = DefaultFactory.opaque(Arc::new(provider)).unwrap();
@@ -556,6 +558,7 @@ mod tests {
         let mut cx = Cx::new(
             std::sync::Arc::new(sim_kernel::EagerPolicy),
             std::sync::Arc::new(DefaultFactory),
+            sim_kernel::HandleSeed::new(0x4645_4d03),
         );
         let first = solve_steady(
             &mut cx,
@@ -602,6 +605,7 @@ mod tests {
         let mut cx = Cx::new(
             std::sync::Arc::new(sim_kernel::EagerPolicy),
             std::sync::Arc::new(DefaultFactory),
+            sim_kernel::HandleSeed::new(0x4645_4d04),
         );
         let mut model = one_box_model();
         model.boundaries.clear();

@@ -137,8 +137,10 @@ fallbacks.
   quantities, fields, or solutions, registers it with the runtime, and exposes
   `quality()` for value-plus-certificate queries.
 - `sim-lib-femm-ode` -- casts a model coupled to external state as an explicit
-  ODE right-hand side for sim-numbers solvers and defines DAE residual contracts
-  for host implicit solvers.
+  ODE right-hand side for sim-numbers solvers and adapts genuine index-1 FEMM
+  residuals, stage Jacobians, and differential/algebraic partitions to the
+  public `sim-lib-numbers-implicit` Radau form. Field and mesh work remains in
+  FEMM behind that boundary.
 - `sim-lib-femm-sensitiv` -- total gradients of supported model quantities with
   respect to registered parameters via exact adjoint, direct, or
   finite-difference paths with explicit trust labels.

@@ -110,7 +110,11 @@ fn solution_validate_rejects_value_count_mismatch() {
 
 #[test]
 fn solution_read_construct_encoding_validates_public_value() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0xf377_659d_cf4f_8e23),
+    );
     let malformed = malformed_solution();
     assert!(malformed.object_encoding(&mut cx).is_err());
 }

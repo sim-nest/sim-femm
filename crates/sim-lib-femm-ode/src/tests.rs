@@ -10,14 +10,59 @@ use sim_lib_numbers_numeric::{NumericNumbersLib, global_numeric_registry, numeri
 use sim_lib_numbers_quad::QuadNumbersLib;
 use sim_lib_numbers_rk::RkNumbersLib;
 
-use crate::{FemmOdeLib, FemmOdeRhs};
+use crate::{FemmImplicitResidual, FemmOdeLib, FemmOdeRhs, as_implicit_problem};
+
+struct ConstrainedFlow;
+impl FemmImplicitResidual for ConstrainedFlow {
+    fn dimension(&self) -> usize {
+        2
+    }
+    fn differential_mask(&self) -> Vec<bool> {
+        vec![true, false]
+    }
+    fn residual_f64(
+        &self,
+        _: f64,
+        z: &[f64],
+        zdot: &[f64],
+        out: &mut [f64],
+    ) -> sim_lib_femm_core::FemmResult<()> {
+        out[0] = zdot[0] + z[0];
+        out[1] = z[1] - z[0] * z[0];
+        Ok(())
+    }
+    fn stage_jacobian_f64(
+        &self,
+        _: f64,
+        z: &[f64],
+        _: &[f64],
+        alpha: f64,
+        out: &mut [f64],
+    ) -> sim_lib_femm_core::FemmResult<()> {
+        out.copy_from_slice(&[1.0 + alpha, 0.0, -2.0 * z[0], 1.0]);
+        Ok(())
+    }
+}
+
+#[test]
+fn femm_residual_adapts_to_declared_index_one_form() {
+    let problem = as_implicit_problem(Arc::new(ConstrainedFlow)).unwrap();
+    let sim_lib_numbers_implicit::ImplicitProblem::Residual { differential, .. } = problem else {
+        panic!("expected residual form")
+    };
+    assert_eq!(differential, vec![true, false]);
+}
 
 fn num(text: &str) -> Expr {
     sim_value::build::num_q(Some("numbers"), "f64", text)
 }
 
 fn numeric_cx() -> Cx {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x4645_4d10),
+    );
     cx.load_lib(&sim_lib_numbers_arith::NumbersArithmeticLib::new())
         .unwrap();
     cx.load_lib(&sim_lib_numbers_f64::F64NumbersLib::new())
@@ -104,7 +149,11 @@ fn mock_force_rhs_reproduces_linear_state_equations() {
         Arc::new(Mutex::new(SolveTape::default())),
     )
     .unwrap();
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x4645_4d11),
+    );
     let func = cx.factory().opaque(Arc::new(rhs.as_func())).unwrap();
     let t = f64_value(&mut cx, 0.5);
     let y = f64_value(&mut cx, 0.25);
@@ -138,7 +187,7 @@ fn femm_ode_rhs_integrates_through_numbers_ode_solve() {
         .factory()
         .table(vec![
             (Symbol::new(":method"), method),
-            (Symbol::new(":h"), step),
+            (Symbol::new(":fixed-step"), step),
         ])
         .unwrap();
     let rhs = cx.factory().opaque(Arc::new(rhs.as_func())).unwrap();
@@ -197,7 +246,11 @@ fn femm_ode_rhs_constructor_rejects_malformed_shapes() {
 
 #[test]
 fn femm_as_ode_rhs_rejects_malformed_adapter_inputs() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x4645_4d12),
+    );
     cx.load_lib(&FemmOdeLib::new()).unwrap();
     let model = cx
         .factory()
@@ -315,3 +368,4 @@ fn femm_func_still_first_class() {
         .unwrap();
     assert!((value_to_f64(&mut cx, &integral) - 1.0).abs() < 1.0e-10);
 }
+// conformance: FEMM ODE tests prove coupled integration and retained solver evidence.

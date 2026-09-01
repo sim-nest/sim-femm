@@ -15,3 +15,7 @@ A simulation is only as trustworthy as the physics behind it, and this is where 
 ## Where it fits
 
 This is the law book of the SIM finite-element stack. Assembly asks it what each element contributes, and solving works out the consequences, but the meaning comes from here. It defines what magnetostatic, harmonic, electrostatic, heat, and current problems actually require. Whenever you pick which physics to study, this supplies the rules that make the rest of the pipeline honest.
+
+Its thin audit adapter also preserves solution identity, energy/loss quantities,
+excitations, ODE/DAE influences, sensitivities, and solve certificates for a
+shared physics audit without moving FEM behavior out of this repository.

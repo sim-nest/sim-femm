@@ -24,7 +24,11 @@ use support::{
 
 #[test]
 fn direct_exact_gradient_matches_adjoint_and_fd_fallback_paths() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x4919_41dd_874b_545d),
+    );
     let base_params = params(&mut cx);
     let (direct, direct_path) = gradient(
         &mut cx,
@@ -60,7 +64,11 @@ fn direct_exact_gradient_matches_adjoint_and_fd_fallback_paths() {
 
 #[test]
 fn dependent_builtin_quantity_uses_exact_adjoint_path() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x6628_4425_9a60_57ed),
+    );
     let base_params = params(&mut cx);
     let (gradient, path) = adjoint_gradient(
         &mut cx,
@@ -76,7 +84,11 @@ fn dependent_builtin_quantity_uses_exact_adjoint_path() {
 
 #[test]
 fn boundary_derivative_errors_are_not_zeroed() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0xa1e4_c9d4_f121_4649),
+    );
     let mut callable = boundary_model();
     callable.model.boundaries[0].value =
         call("sqrt", vec![Expr::Symbol(sim_kernel::Symbol::new("gap"))]);
@@ -98,7 +110,11 @@ fn boundary_derivative_errors_are_not_zeroed() {
 
 #[test]
 fn linear_total_gradient_covers_energy_and_flux() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x4dc3_6ed0_b2d7_7ac8),
+    );
     let callable = parametric_box_model();
     let params = width_height_params(&mut cx);
     let mut solve = solve_steady(
@@ -143,7 +159,11 @@ fn linear_total_gradient_covers_energy_and_flux() {
 
 #[test]
 fn nonlinear_total_gradient_covers_gapped_ei_core_inductor() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0xa73a_9204_7698_a632),
+    );
     let callable = ModelCallable {
         model: gapped_ei_core_inductor(),
     };
@@ -191,7 +211,11 @@ fn nonlinear_total_gradient_covers_gapped_ei_core_inductor() {
 
 #[test]
 fn linear_builtin_derivatives_match_finite_difference() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0xcf3c_e2d9_e6b2_04f0),
+    );
     let callable = parametric_box_model();
     let params = width_height_params(&mut cx);
     let width = sim_kernel::Symbol::new("width");
@@ -231,7 +255,11 @@ fn linear_builtin_derivatives_match_finite_difference() {
 
 #[test]
 fn excitation_dependent_inductance_falls_back_to_finite_difference() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x4d82_3a84_12ff_812a),
+    );
     let mut callable = parametric_box_model();
     // A drive that itself depends on the design parameter: dI/dp != 0.
     callable.model.sources = vec![Source::CircuitCoil {
@@ -283,7 +311,11 @@ fn excitation_dependent_inductance_falls_back_to_finite_difference() {
 
 #[test]
 fn gradient_answer_reports_finite_difference_trust() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x7573_3d19_0fd6_9f5b),
+    );
     let mut callable = parametric_box_model();
     callable.model.sources = vec![Source::CircuitCoil {
         name: sim_kernel::Symbol::new("plate"),
@@ -315,7 +347,11 @@ fn gradient_answer_reports_finite_difference_trust() {
 
 #[test]
 fn nonlinear_state_derivative_is_energy_only() {
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x0ed6_99a2_58fa_cf17),
+    );
     let callable = ModelCallable {
         model: gapped_ei_core_inductor(),
     };
@@ -361,7 +397,11 @@ fn nonlinear_state_derivative_is_energy_only() {
 #[test]
 fn numeric_diff_with_femm_adjoint_uses_plugin_payload() {
     register_femm_adjoint().unwrap();
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x5339_b343_40d1_eced),
+    );
     cx.load_lib(&NumericNumbersLib::new()).unwrap();
     let func = femm_as_func(
         model().model.clone(),
@@ -397,7 +437,11 @@ fn numeric_diff_with_femm_adjoint_uses_plugin_payload() {
 #[test]
 fn numeric_diff_with_femm_adjoint_resolves_model_defaults() {
     register_femm_adjoint().unwrap();
-    let mut cx = Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory));
+    let mut cx = Cx::new(
+        Arc::new(EagerPolicy),
+        Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0xf258_d4ec_feed_a12a),
+    );
     cx.load_lib(&NumericNumbersLib::new()).unwrap();
     let callable = model_with_default_offset(&mut cx);
     let func = femm_as_func(

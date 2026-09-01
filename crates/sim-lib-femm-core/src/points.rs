@@ -64,6 +64,7 @@ pub fn decode_point2(points: &Value) -> FemmResult<[f64; 2]> {
     let mut cx = Cx::new(
         std::sync::Arc::new(sim_kernel::EagerPolicy),
         std::sync::Arc::new(DefaultFactory),
+        sim_kernel::HandleSeed::new(0x4645_4d01),
     );
     let expr = points
         .object()
@@ -224,7 +225,11 @@ mod tests {
     use super::*;
 
     fn test_cx() -> Cx {
-        Cx::new(Arc::new(EagerPolicy), Arc::new(DefaultFactory))
+        Cx::new(
+            Arc::new(EagerPolicy),
+            Arc::new(DefaultFactory),
+            sim_kernel::HandleSeed::new(0x022c_76d9_e671_aadc),
+        )
     }
 
     fn num(canonical: &str) -> Expr {

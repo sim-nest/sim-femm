@@ -7,6 +7,9 @@ description = "Repository automation wrapper for sim-femm generated documentatio
 readme = "README.md"
 publish = false
 
+[package.metadata.sim]
+role = "host-tool"
+
 [dependencies]
 
 [lints]
