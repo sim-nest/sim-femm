@@ -17,7 +17,7 @@ Generated from Cargo metadata by `xtask crate-catalog v1`.
 | `sim-lib-femm-material` | `true` | `custom-build, lib` | FEMM material properties, boundary conditions, sources, and mesh/output policies. |
 | `sim-lib-femm-mesh` | `true` | `custom-build, lib` | FEMM model validation, deterministic meshing, and triangular mesh data structures. |
 | `sim-lib-femm-ode` | `true` | `custom-build, lib` | Explicit ODE right-hand-side adapter and DAE residual contract for FEMM models. |
-| `sim-lib-femm-physics` | `true` | `custom-build, lib` | Physics front equations for magnetostatic, harmonic, electrostatic, heat, and current FEMM models. |
+| `sim-lib-femm-physics` | `true` | `custom-build, lib, test` | Physics front equations for magnetostatic, harmonic, electrostatic, heat, and current FEMM models. |
 | `sim-lib-femm-post` | `true` | `custom-build, lib` | Solved-model quantities for FEMM energy, force, flux, inductance, and field samples. |
 | `sim-lib-femm-prelude` | `true` | `custom-build, lib` | One-call installer for the SIM FEMM stack and its number dependencies. |
 | `sim-lib-femm-query` | `true` | `custom-build, lib` | Shared FEMM model query callable substrate for function and sensitivity surfaces. |

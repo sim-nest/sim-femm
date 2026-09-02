@@ -156,7 +156,8 @@
       "root": "crates/sim-lib-femm-physics",
       "target_kinds": [
         "custom-build",
-        "lib"
+        "lib",
+        "test"
       ]
     },
     {
