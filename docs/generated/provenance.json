@@ -1,28 +1,42 @@
 {
   "api_docs": "target/doc/",
-  "generated_by": "cargo run -p xtask -- simdoc",
-  "generation_timestamp": "2026-07-14T23:00:40+02:00",
+  "execution": {
+    "executable": {
+      "lock_sha256": "de3cf584352514646909797b8454326e8ba4d3d90bf87ed7c3592ae971073678",
+      "package": "simdoc",
+      "source_sha256": "395d780eb6f38d1b0b49368a71b96771c70ae4bc3aac3554f6c592195ba104d3",
+      "version": "0.1.0"
+    },
+    "operation": "repo-contract --repo .",
+    "resolver": null,
+    "toolchain": {
+      "cargo": {
+        "commit_hash": "30a34c6821b57de0aaec83a901aca39f88f6778c",
+        "release": "1.96.0"
+      },
+      "rustc": {
+        "commit_hash": "ac68faa20c58cbccd01ee7208bf3b6e93a7d7f96",
+        "release": "1.96.0"
+      }
+    }
+  },
+  "generation_timestamp": "2026-09-29T20:01:18+02:00",
   "generator": "xtask repo-contract v1",
-  "git_commit": "1f2ff6724c86a38e0cc1ae6375586b54d3a5153f",
+  "git_commit": "dcc1205664cb74fc77aab7d62ae650cd2c0ac759",
+  "regeneration_command": "cargo run -p xtask -- simdoc",
   "repo": "sim-femm",
   "schema": "sim.provenance.v1",
-  "source_commit": "1f2ff6724c86a38e0cc1ae6375586b54d3a5153f",
+  "source_commit": "dcc1205664cb74fc77aab7d62ae650cd2c0ac759",
   "source_remote": "https://github.com/sim-nest/sim-femm",
   "validation_commands": [
-    "cargo fmt --all --check",
-    "cargo test",
-    "cargo clippy --all-targets -- -D warnings",
-    "cargo doc --no-deps",
-    "cargo run -p xtask -- simdoc --check",
-    "cargo run -p xtask -- check-file-sizes",
-    "cargo run -p xtask -- repo-contract --check --repo .",
-    "cargo run -p xtask -- validation-matrix --check --repo .",
-    "cargo run -p xtask -- crate-catalog --check --repo ."
+    "cargo run -p xtask -- simdoc --check"
   ],
-  "workspace_hash": "862d7831e57c6696",
+  "workspace_hash": "9575062d8b565fcb",
   "workspace_hash_algorithm": "fnv1a64",
-  "workspace_hash_input_count": 149,
+  "workspace_hash_input_count": 152,
   "workspace_hash_inputs": [
+    ".github/workflows/authorship.yml",
+    ".github/workflows/ci.yml",
     "Cargo.toml",
     "crates/sim-lib-femm-assembly/Cargo.toml",
     "crates/sim-lib-femm-assembly/build.rs",
@@ -171,6 +185,7 @@
     "crates/sim-lib-femm-tape/src/implementation.rs",
     "crates/sim-lib-femm-tape/src/lib.rs",
     "features.toml",
-    "xtask/Cargo.toml"
+    "xtask/Cargo.toml",
+    "xtask/src/main.rs"
   ]
 }
